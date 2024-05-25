@@ -1,0 +1,15 @@
+{
+    "commit": "399dda973a1c934d2c10e57cab09740734b58910",
+    "authors": [
+        "Alice",
+        "Bob"
+    ],
+    "date": "2024-05-25T19:38:35.640066",
+    "feature": "NewFeature",
+    "changes": [
+        {
+            "change_type": "hinzugefügt",
+            "description": "Neue Funktionalität hinzugefügt"
+        }
+    ]
+}
