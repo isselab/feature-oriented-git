@@ -102,7 +102,7 @@ def get_features_for_file(
                     features.append(feature_name)
     return features
 
-# Usages: FEATURE INFO
+# Usages: FEATURE INFO, FEATURE STATUS
 def get_commits_for_feature(feature_uuid: str) -> list[Commit]:
 
     with repo_context() as repo:

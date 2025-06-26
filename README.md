@@ -3,7 +3,7 @@
 
 This tool provides advanced Git feature management, allowing you to associate feature information with commits and files.
 
-## Installation + Preaparation
+## Installation + Preparation
 
 1. Install the tool using pip:
     1. Download the latest release file (currently, the project is not stored in the PIP Index)

@@ -52,6 +52,7 @@ def inspect_feature(
 ):
     typer.echo(f"Collecting information for feature {feature}")
     try:
+        typer.echo("Commit IDs")
         commit_ids = [x.hexsha for x in get_commits_for_feature(feature)]
         print_list_w_indent(commit_ids)
     except Exception:
