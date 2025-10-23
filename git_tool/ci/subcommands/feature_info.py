@@ -10,9 +10,6 @@ from git_tool.feature_data.git_helper import (
     get_files_for_commit,
 )
 from git_tool.feature_data.git_status_per_feature import get_commits_for_feature
-from git_tool.feature_data.read_feature_data.parse_data import (
-    _get_feature_uuids,
-)
 
 
 def print_list_w_indent(stuff: list, indent: int = 1) -> None:
@@ -20,16 +17,7 @@ def print_list_w_indent(stuff: list, indent: int = 1) -> None:
         typer.echo("\t" * indent + item)
 
 
-app = typer.Typer(
-    help="Displaying feature information for the entire git repo",
-    no_args_is_help=True,
-)
-
-info_app = typer.Typer(
-    no_args_is_help=True, help="Inspect feature details. This includes "
-)
-# app.add_typer(info_app, name="info")
-# app.add_typer(currently_staged_app, name="currently-staged")
+app = typer.Typer(help="Displaying feature information for the entire git repo", no_args_is_help=True)
 
 
 # TODO sollte zu git feature-status
@@ -40,7 +28,7 @@ info_app = typer.Typer(
 #     return
 
 
-@app.command(name="feature", help="Show feature-specific information.")
+@app.command(name="info")
 def inspect_feature(
     feature: str = typer.Argument(..., help="Inspect a particular feature"),
     authors: bool = typer.Option(
@@ -64,13 +52,14 @@ def inspect_feature(
 ):
     typer.echo(f"Collecting information for feature {feature}")
     try:
+        typer.echo("Commit IDs")
         commit_ids = [x.hexsha for x in get_commits_for_feature(feature)]
         print_list_w_indent(commit_ids)
     except Exception:
         commit_ids = []
         typer.echo(f"No commit-ids for feature {feature} found")
     if branches:
-        typer.echo(f"Branches (* indicates current branch)")
+        typer.echo("Branches (* indicates current branch)")
         branches = set(
             [
                 branch
@@ -80,11 +69,11 @@ def inspect_feature(
         )
         print_list_w_indent(branches)
     if authors:
-        typer.echo(f"Authors")
+        typer.echo("Authors")
         authors = set([get_author_for_commit(c) for c in commit_ids])
         print_list_w_indent(authors)
     if files:
-        typer.echo(f"Files")
+        typer.echo("Files")
         files = set(
             file for c in commit_ids for file in get_files_for_commit(c)
         )
@@ -144,19 +133,6 @@ def inspect_feature(
                     f"Error retrieving commits for other branches: {e}",
                     fg=typer.colors.RED,
                 )
-
-
-@app.command(
-    name="all",
-    help="List all available features in the project. \
-        Use these names with 'git feature-info <feature>' to inspect details.",
-)
-def all_feature_info():
-    """
-    Inspects feature information.
-    """
-    typer.echo("All Features")
-    print_list_w_indent(_get_feature_uuids())
 
 
 if __name__ == "__main__":

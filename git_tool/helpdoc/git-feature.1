@@ -1,0 +1,26 @@
+.TH git-feature 1 "12 April 2025" "Kim Nguyen" "git-feature(1) Manual Page"
+.SH NAME
+git-feature - Manage feature metadata and inspect feature-related information
+
+.SH SYNOPSIS
+.P
+\fB git feature status \fP
+.P
+\fB git feature add \fP <feature_names> [-a | --all | -f <file_name> | --files <file_name>]
+.P
+\fB git feature add-from-staged \fP
+.P
+\fB git feature commit \fP <commit_id> [--features <feature_name>]
+.P
+\fB git feature commits missing \fP
+.P
+\fB git feature commits list \fP
+.P
+\fB git feature blame \fP <file_name>
+.P
+\fB git feature info-all \fP
+.P
+\fBgit feature info\fP <feature_name> [--authors | --files | --branches | --updatable | --branch <branch_name>]
+
+.SH COMMANDS
+With no arguments, shows the help text. Several subcommands are available to perform operations on the feature metadata.

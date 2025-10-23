@@ -19,17 +19,15 @@ app = typer.Typer(
 )
 
 
-@app.command(
-    help="Displays the current status of files in the working directory, showing staged, unstaged, and untracked changes along with their associated features. \
-    Files without associated features will be highlighted, and suggestions for adding features will be provided.",
-)
+@app.command(name="status")
 def feature_status(
     help: bool = typer.Option(
         None, "--help", "-h", is_eager=True, help="Show this message and exit."
     )
 ):
     """
-    Displays unstaged and staged changes with associated features.
+    Displays the current status of files in the working directory, showing staged, unstaged, and untracked changes along with their associated features.
+    Files without associated features will be highlighted, and suggestions for adding features will be provided.
     """
     if help:
         typer.echo(app.rich_help_panel)

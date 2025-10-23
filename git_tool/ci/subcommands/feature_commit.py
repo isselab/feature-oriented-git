@@ -23,7 +23,7 @@ app = typer.Typer(
 
 @app.command(
     name="commit",
-    help="Associate an existing commit with one or more features",
+    help="Associate an existing commit with one or more features.",
     no_args_is_help=True,
 )
 def feature_commit(

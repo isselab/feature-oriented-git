@@ -35,6 +35,7 @@ def read_staged_featureset() -> List[str]:
         features = set(line.strip() for line in f.readlines())
     return list(features)
 
+# Usage: FEATURE ADD, ADD-FROM-STAGED
 def write_staged_featureset(features: List[str]):
     """
     Write the list of staged features to the FEATUREINFO file.

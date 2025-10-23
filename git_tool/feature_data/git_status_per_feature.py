@@ -23,7 +23,7 @@ class GitChanges(TypedDict):
 
 GitStatusEntry = namedtuple("GitStatusEntry", ["status", "file_path"])
 
-
+# Usages: FEATURE ADD, ADD-FROM-STAGED, PRE-COMMIT, STATUS
 def get_files_by_git_change() -> GitChanges:
     """
     Retrieves files sorted by the type of git change (staged, unstaged, untracked).
@@ -64,7 +64,7 @@ def find_annotations_for_file(file: str):
     """
     raise NotImplementedError
 
-
+# Usage: FEATURE ADD-FROM-STAGED, BLAME, STATUS
 def get_features_for_file(
     file_path: str, use_annotations: bool = False
 ) -> List[str]:
@@ -102,7 +102,7 @@ def get_features_for_file(
                     features.append(feature_name)
     return features
 
-
+# Usages: FEATURE INFO, FEATURE STATUS
 def get_commits_for_feature(feature_uuid: str) -> list[Commit]:
 
     with repo_context() as repo:

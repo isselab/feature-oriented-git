@@ -4,7 +4,7 @@
 echo "Running feature-post-commit"
 
 COMMIT_ID=$(git rev-parse HEAD)
-git feature-commit $COMMIT_ID
+git feature commit $COMMIT_ID
 
 if [ $? -ne 0 ]; then
     echo "Error: git feature-commit failed."

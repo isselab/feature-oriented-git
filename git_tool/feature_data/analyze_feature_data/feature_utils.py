@@ -96,12 +96,12 @@ def get_uuid_for_featurename(name: str) -> uuid.UUID:
     # TODO this is not implemented correctly
     return name
 
-
+# Usages: FEATURE INFO
 def get_current_branchname() -> str:
     with repo_context() as repo:
         return repo.active_branch
 
-
+# Usages: FEATURE INFO
 def get_commits_for_feature_on_other_branches(
     feature_commits: set[str],
     current_branch: str = get_current_branchname(),
@@ -166,7 +166,7 @@ def get_all_features() -> list[str]:
         folders = folder_string.splitlines()
         return folders
 
-
+# Usages: FEATURE COMMITS
 def get_commits_with_feature() -> list[str]:
     """
     Return a list of short ids of commits that are assoicated

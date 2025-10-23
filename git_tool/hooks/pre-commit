@@ -1,7 +1,7 @@
 #!/bin/bash
 # Pre-Commit Hook: Assert that feature changes were staged and the script does not find reasons to not continue
 echo "Running feature-pre-commit"
-git feature-pre-commit
+git feature pre-commit
 
 if [ $? -ne 0 ]; then
   echo "Error: Pre-commit checks failed."

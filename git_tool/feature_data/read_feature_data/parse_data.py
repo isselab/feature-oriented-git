@@ -15,7 +15,7 @@ from git_tool.feature_data.models_and_context.repo_context import (
     repo_context,
 )
 
-
+# Usages: FEATURE INFO-ALL
 def _get_feature_uuids() -> list[str]:
     """
     Each feature has its own folder where the foldername is equivalent to the uuid that the
@@ -91,7 +91,7 @@ def get_feature_log(feature_uuid: str):
             )
         )
 
-
+# Usages: compare_branches.py (potentially FEATURE BLAME)
 def get_features_touched_by_commit(commit: Commit) -> Set[str]:
     """
     Retrieves the set of features touched by a given commit.
@@ -200,23 +200,6 @@ def extract_facts_from_commit(commit: Commit) -> List[FeatureFactModel]:
             except:
                 print("error")
     return facts
-
-
-def get_features_touched_by_commit(commit: Commit) -> Set[str]:
-    """
-    Retrieves the set of features touched by a given commit.
-
-    Args:
-        commit (Commit): The commit to analyze.
-
-    Returns:
-        Set[str]: Set of features touched by the commit.
-    """
-    feature_facts = extract_facts_from_commit(commit)
-    features = set()
-    for fact in feature_facts:
-        features.update(fact.features)
-    return features
 
 
 if __name__ == "__main__":

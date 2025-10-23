@@ -1,10 +1,10 @@
 [project]
 name = "git_tool"
-authors = [{ name = "Tabea Röthemeyer", email = "tabea.roethemeyer@rub.de" }]
+authors = [{ name = "Tabea Röthemeyer", email = "tabea.roethemeyer@rub.de" }, { name = "Kim Nguyen", email = "ho.nguyen@rub.de"}]
 license = { file = "LICENSE" }
 description = "Support feature-oriented development workflows with git"
 readme = "README.md"
-version = "1.0.10"
+version = "1.0.11"
 requires-python = ">=3.10"
 classifiers = [
   "Programming Language :: Python :: 3",
@@ -14,6 +14,7 @@ classifiers = [
 ]
 dependencies = [
   "typer>=0.12,<0.13",
+  "click <8.1.0",
   "pydantic[email]>=2.8,<3.0",
   "GitPython>=3.1,<4.0",
   "python-dotenv>=1.0,<2.0",
@@ -21,14 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-git-feature-status = "git_tool.ci.subcommands.feature_status:app"
-git-feature-info = "git_tool.ci.subcommands.feature_info:app"
-git-feature-add = "git_tool.ci.subcommands.feature_add:app"
-git-feature-blame = "git_tool.ci.subcommands.feature_blame:app"
-git-feature-commit = "git_tool.ci.subcommands.feature_commit:app"
-git-feature-commit-msg = "git_tool.ci.subcommands.feature_commit_msg:app"
-git-feature-pre-commit = "git_tool.ci.subcommands.feature_pre_commit:app"
-git-feature-commits = "git_tool.ci.subcommands.feature_commits:app"
+git-feature = "git_tool.__main__.py:app"
+feature-init-hooks = "git_tool.scripts_for_experiment.set_hooks_path:main"
 
 [build-system]
 requires = ["hatchling"]
