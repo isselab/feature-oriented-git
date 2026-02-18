@@ -160,3 +160,31 @@ For further details or to explore more usage options, refer to the [Typer Docume
 
 ## Development
 1. Create a virtual environment and install both requirement-files.
+
+### Rust Components
+
+To build and run the rust components, use standard Cargo commands from the project root:
+
+```bash
+# Build the project
+cargo build
+
+# Run the project
+cargo run
+```
+
+The binary will be compiled into `target/debug/git-vms`.
+
+**Symlinking Binaries**
+
+For rapid development, you can symlink the compiled binaries to a location in your `$PATH` so you can run them like any other git command:
+
+```bash
+ln -s $(pwd)/target/debug/git-vms /path/to/your/bin/git-vms
+```
+
+After that, you can run the binary directly:
+
+```bash
+git vms --version
+```
