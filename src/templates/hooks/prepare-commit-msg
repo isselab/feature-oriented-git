@@ -1,0 +1,20 @@
+#!/bin/bash
+
+COMMIT_MSG_FILE=$1
+COMMIT_SOURCE=$2
+
+# Skip merge commits
+if [[ "$COMMIT_SOURCE" == "merge" ]]; then
+    exit 0
+fi
+
+# Generate a UUID for now (replace with API call later)
+CHANGE_ID=$(uuidgen)
+
+# Check if "Ticket:" is already present to avoid duplicate
+if ! grep -q "^CHANGE_ID:" "$COMMIT_MSG_FILE"; then
+    # Append a blank line + ticket info at the end
+    echo -e "\nCHANGE_ID: $CHANGE_ID" >> "$COMMIT_MSG_FILE"
+fi
+
+exit 0
