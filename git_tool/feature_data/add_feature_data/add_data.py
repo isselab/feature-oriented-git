@@ -46,7 +46,7 @@ def generate_fact_file_path(fact: FeatureFactModel) -> list[Path]:
         Path(uuid)
         .joinpath(Path(fact.commit))
         .joinpath(
-            f'{fact.date.isoformat(timespec="minutes").replace(":", "-")}-{sha1_hash[:7]}'
+            f"{fact.date.isoformat(timespec='minutes').replace(':', '-')}-{sha1_hash[:7]}"
         )
         .as_posix()
         for uuid in feature_uuids

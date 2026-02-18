@@ -1,5 +1,5 @@
 """
-Functions to retrieve git information for a specific file rather than starting with 
+Functions to retrieve git information for a specific file rather than starting with
 a list of features or commits
 """
 

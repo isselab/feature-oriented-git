@@ -17,7 +17,10 @@ def print_list_w_indent(stuff: list, indent: int = 1) -> None:
         typer.echo("\t" * indent + item)
 
 
-app = typer.Typer(help="Displaying feature information for the entire git repo", no_args_is_help=True)
+app = typer.Typer(
+    help="Displaying feature information for the entire git repo",
+    no_args_is_help=True,
+)
 
 
 # TODO sollte zu git feature-status

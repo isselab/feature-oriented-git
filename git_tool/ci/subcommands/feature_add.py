@@ -14,7 +14,11 @@ from git_tool.finding_features import features_for_file_by_annotation
 app = typer.Typer(no_args_is_help=True)
 
 
-@app.command("add", help="Stage files and associate them with the provided features.", no_args_is_help=True)
+@app.command(
+    "add",
+    help="Stage files and associate them with the provided features.",
+    no_args_is_help=True,
+)
 def feature_add_by_add(
     feature_names: list[str] = typer.Argument(
         None, help="List of feature names to associate with the staged files"
@@ -50,7 +54,6 @@ def feature_add_by_add(
         write_staged_featureset(feature_names)
     else:
         typer.echo("No features provided.", err=True)
-
 
 
 def stage_files(selected_files: list[str]) -> bool:

@@ -74,21 +74,26 @@ def create_empty_branch(branch_name: str, repo: git.Repo) -> str:
 
     return fast_import_script
 
+
 HOME_DIR = os.path.expanduser("~")
 TIMESTAMP_FILE = os.path.join(HOME_DIR, ".feature_branch_timestamp.txt")
+
+
 def get_last_execution_time():
     if os.path.exists(TIMESTAMP_FILE):
-        with open(TIMESTAMP_FILE, 'r') as f:
+        with open(TIMESTAMP_FILE, "r") as f:
             try:
                 return datetime.fromisoformat(f.read().strip())
             except ValueError:
-                return None  
+                return None
     return None
 
+
 def update_last_execution_time():
-    with open(TIMESTAMP_FILE, 'w') as f:
+    with open(TIMESTAMP_FILE, "w") as f:
         f.write(datetime.now().isoformat())
-        
+
+
 def ensure_feature_branch(func):
     """
     Decorator to ensure that the feature branch is created if it does not exist.
@@ -101,14 +106,22 @@ def ensure_feature_branch(func):
         repo = git.Repo(REPO_PATH)
         current_time = datetime.now()
         # print("Executing ensure feautre branch")
-        if last_execution_time is None or ((current_time- last_execution_time) > timedelta(minutes=5)):
+        if last_execution_time is None or (
+            (current_time - last_execution_time) > timedelta(minutes=5)
+        ):
             update_last_execution_time()
             if FEATURE_BRANCH_NAME not in repo.heads:
                 try:
-                    repo.git.branch(FEATURE_BRANCH_NAME, f"origin/{FEATURE_BRANCH_NAME}")
-                    typer.echo(f"Branch {FEATURE_BRANCH_NAME} created locally from origin.")
+                    repo.git.branch(
+                        FEATURE_BRANCH_NAME, f"origin/{FEATURE_BRANCH_NAME}"
+                    )
+                    typer.echo(
+                        f"Branch {FEATURE_BRANCH_NAME} created locally from origin."
+                    )
                 except git.GitCommandError:
-                    typer.echo(f"Branch {FEATURE_BRANCH_NAME} does not exist on origin. Creating an empty branch.")
+                    typer.echo(
+                        f"Branch {FEATURE_BRANCH_NAME} does not exist on origin. Creating an empty branch."
+                    )
                     create_empty_branch(FEATURE_BRANCH_NAME, repo)
             try:
                 typer.echo("Fetching new feature-metadata")
@@ -163,7 +176,7 @@ def get_current_branch() -> str:
 
 def sync_feature_branch():
     with repo_context() as repo:
-        remote_name = "origin" 
+        remote_name = "origin"
         try:
             print(f"Fetching {FEATURE_BRANCH_NAME} from {remote_name}")
             repo.git.fetch(remote_name, FEATURE_BRANCH_NAME)
@@ -173,7 +186,9 @@ def sync_feature_branch():
 
         try:
             print(f"Pushing {FEATURE_BRANCH_NAME} to {remote_name}")
-            repo.git.push(remote_name, FEATURE_BRANCH_NAME, force_with_lease=True)
+            repo.git.push(
+                remote_name, FEATURE_BRANCH_NAME, force_with_lease=True
+            )
         except Exception as e:
             # print(f"Error pushing the branch: {e}")
             print("Warning: Feature Updates could not be pushed to remote")

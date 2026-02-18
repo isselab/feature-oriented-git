@@ -3,11 +3,12 @@ import os
 import sys
 import git_tool
 
-'''
+"""
     This script sets the hooks path for git.
     It has been added to the pyproject.toml file as "feature-init-hooks"
     Originally, the user had to set the hooks path manually, but not anymore.
-'''
+"""
+
 
 def main():
     try:
@@ -21,7 +22,9 @@ def main():
         print(f"Using hooks directory: {hook_path}")
 
         # Step 3: Set git hooksPath
-        subprocess.run(["git", "config", "core.hooksPath", hook_path], check=True)
+        subprocess.run(
+            ["git", "config", "core.hooksPath", hook_path], check=True
+        )
         print("Git hooks path set successfully.")
 
         # Step 4: Check the current hooks path
@@ -29,7 +32,7 @@ def main():
             ["git", "rev-parse", "--git-path", "hooks"],
             check=True,
             stdout=subprocess.PIPE,
-            text=True
+            text=True,
         )
         current_hook_path = result.stdout.strip()
         print(f"Git is now using hooks from: {current_hook_path}")

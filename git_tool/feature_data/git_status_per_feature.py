@@ -23,6 +23,7 @@ class GitChanges(TypedDict):
 
 GitStatusEntry = namedtuple("GitStatusEntry", ["status", "file_path"])
 
+
 # Usages: FEATURE ADD, ADD-FROM-STAGED, PRE-COMMIT, STATUS
 def get_files_by_git_change() -> GitChanges:
     """
@@ -64,6 +65,7 @@ def find_annotations_for_file(file: str):
     """
     raise NotImplementedError
 
+
 # Usage: FEATURE ADD-FROM-STAGED, BLAME, STATUS
 def get_features_for_file(
     file_path: str, use_annotations: bool = False
@@ -102,9 +104,9 @@ def get_features_for_file(
                     features.append(feature_name)
     return features
 
+
 # Usages: FEATURE INFO, FEATURE STATUS
 def get_commits_for_feature(feature_uuid: str) -> list[Commit]:
-
     with repo_context() as repo:
         output = repo.git.ls_tree(
             "-d", "--name-only", f"{FEATURE_BRANCH_NAME}:{feature_uuid}"
@@ -123,15 +125,17 @@ def commit_in_feature_folder(commit: str, feature_folder: str) -> bool:
     Returns:
         bool: True if the commit is present in the feature folder, False otherwise.
     """
-    assert isinstance(
-        commit, str
-    ), f"Expected commit to be a string, but got {type(commit).__name__}"
-    assert isinstance(
-        feature_folder, str
-    ), f"Expected feature_folder to be a string, but got {type(feature_folder).__name__}"
+    assert isinstance(commit, str), (
+        f"Expected commit to be a string, but got {type(commit).__name__}"
+    )
+    assert isinstance(feature_folder, str), (
+        f"Expected feature_folder to be a string, but got {type(feature_folder).__name__}"
+    )
     with repo_context() as repo:
-        commit_obj =repo.commit(commit)
-    result = commit_obj.hexsha in [x.hexsha for x in get_commits_for_feature(feature_uuid=feature_folder)]
+        commit_obj = repo.commit(commit)
+    result = commit_obj.hexsha in [
+        x.hexsha for x in get_commits_for_feature(feature_uuid=feature_folder)
+    ]
     return result
 
 

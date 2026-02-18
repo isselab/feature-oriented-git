@@ -23,7 +23,7 @@ app = typer.Typer(
 def feature_status(
     help: bool = typer.Option(
         None, "--help", "-h", is_eager=True, help="Show this message and exit."
-    )
+    ),
 ):
     """
     Displays the current status of files in the working directory, showing staged, unstaged, and untracked changes along with their associated features.

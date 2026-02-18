@@ -94,9 +94,7 @@ class AccumulatedCommitData(BaseModel):
         result.append(self.message)
         with repo_context.repo_context() as repo:
             try:
-                from_message: str = (
-                    f"from {repo.git.rev_parse(f'refs/heads/{self.branch_name}')}"
-                )
+                from_message: str = f"from {repo.git.rev_parse(f'refs/heads/{self.branch_name}')}"
                 result.append(from_message)
             except GitCommandError:
                 print(

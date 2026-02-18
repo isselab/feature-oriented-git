@@ -12,7 +12,10 @@ from git_tool.feature_data.models_and_context.feature_state import (
     read_staged_featureset,
     reset_staged_featureset,
 )
-from git_tool.feature_data.models_and_context.repo_context import repo_context, sync_feature_branch
+from git_tool.feature_data.models_and_context.repo_context import (
+    repo_context,
+    sync_feature_branch,
+)
 
 
 app = typer.Typer(
@@ -36,7 +39,10 @@ def feature_commit(
         help="Manually specify feature names. Each feature-name needs to be prefixed with --features <name>\
             If this option is provided, staged feature information will be ignored.",
     ),
-    upload: bool = typer.Option(True, help="Set whether feature information are also directly uploaded to remote.")
+    upload: bool = typer.Option(
+        True,
+        help="Set whether feature information are also directly uploaded to remote.",
+    ),
 ):
     """
     Associate feature information with a regular git commit.
@@ -76,13 +82,12 @@ def feature_commit(
         # Add the fact to the metadata branch
         add_fact_to_metadata_branch(fact=feature_fact, commit_ref=commit_obj)
         typer.echo(f"Features {features} assigned to {commit_id}")
-        
+
         if upload:
             sync_feature_branch()
     # typer.echo("Step 4: Cleanup all information/ internal state stuff")
     reset_staged_featureset()
-        
-    
+
     # typer.echo("Feature commit process completed successfully.")
 
 

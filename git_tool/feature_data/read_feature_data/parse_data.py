@@ -1,5 +1,5 @@
 """
-    All functions needed to parse data from feature files.
+All functions needed to parse data from feature files.
 
 """
 
@@ -14,6 +14,7 @@ from git_tool.feature_data.models_and_context.repo_context import (
     branch_folder_list,
     repo_context,
 )
+
 
 # Usages: FEATURE INFO-ALL
 def _get_feature_uuids() -> list[str]:
@@ -90,6 +91,7 @@ def get_feature_log(feature_uuid: str):
                 commit_ids,
             )
         )
+
 
 # Usages: compare_branches.py (potentially FEATURE BLAME)
 def get_features_touched_by_commit(commit: Commit) -> Set[str]:

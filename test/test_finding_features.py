@@ -41,9 +41,9 @@ def test_git_features(git_repo):
         (finding_features.get_features_for_diff(d), d.a_path) for d in diff
     ]
     found_features = mapped_to_feature[0][0]
-    assert (
-        len(found_features) == 1
-    ), "Expecting one Feature that is not committed"
-    assert (
-        found_features[0].name == "Feature1"
-    ), "Expecting to find the correct name for feature"
+    assert len(found_features) == 1, (
+        "Expecting one Feature that is not committed"
+    )
+    assert found_features[0].name == "Feature1", (
+        "Expecting to find the correct name for feature"
+    )

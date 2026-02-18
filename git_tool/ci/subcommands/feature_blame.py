@@ -3,7 +3,9 @@ from typing import Any
 
 import typer
 from git import Repo
-from git_tool.feature_data.read_feature_data.parse_data import get_features_touched_by_commit
+from git_tool.feature_data.read_feature_data.parse_data import (
+    get_features_touched_by_commit,
+)
 from git_tool.feature_data.models_and_context.repo_context import (
     repo_context,
 )
@@ -45,7 +47,9 @@ def get_line_to_blame_mapping(
     return line_to_blame
 
 
-def get_commit_to_features_mapping(line_to_commit: dict[int, tuple[str, str]]) -> dict[str, str]:
+def get_commit_to_features_mapping(
+    line_to_commit: dict[int, tuple[str, str]],
+) -> dict[str, str]:
     """
     Returns a mapping of commit hashes to features.
     """
@@ -66,7 +70,9 @@ def get_line_to_features_mapping(
     Returns a mapping of line numbers to features.
     """
     # Get the commit for each line using 'git blame'
-    line_to_blame = get_line_to_blame_mapping(repo, file_path, start_line, end_line)
+    line_to_blame = get_line_to_blame_mapping(
+        repo, file_path, start_line, end_line
+    )
     # for debugging: print("Step 1: ", line_to_blame)
 
     # Get the features for each commit
@@ -95,19 +101,28 @@ def print_feature_blame_output(
     line_to_features, line_to_blame = mappings
     # Get the max width of feature strings for alignment
     max_feature_width = max(
-        (len(line_to_features.get(commit, "UNKNOWN")) for commit in line_to_features.values()),
+        (
+            len(line_to_features.get(commit, "UNKNOWN"))
+            for commit in line_to_features.values()
+        ),
         default=15,
     )
 
     for i in range(start_line, end_line + 1):
-        line = lines[i - 1]  # Adjust because list is 0-indexed, but line numbers start from 1
+        line = lines[
+            i - 1
+        ]  # Adjust because list is 0-indexed, but line numbers start from 1
         commit_hash, blame_text = line_to_blame.get(i)
         blame_text = blame_text.replace("(", "", 1)
         feature = line_to_features.get(i, "UNKNOWN")
         typer.echo(f"{feature:<15} ({commit_hash} {blame_text}")
 
 
-@app.command(help="Display features associated with file lines.", no_args_is_help=True, name=None)
+@app.command(
+    help="Display features associated with file lines.",
+    no_args_is_help=True,
+    name=None,
+)
 def feature_blame(
     filename: str = typer.Argument(
         ..., help="The file to display feature blame for."
