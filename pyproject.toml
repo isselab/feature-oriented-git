@@ -50,3 +50,12 @@ extend-exclude = '''
   | scripts/generate_schema.py  # Uses match syntax
 )
 '''
+
+[tool.ruff]
+line-length = 80
+target-version = "py38"
+exclude = [
+    "tests/data",
+    "profiling",
+    "scripts/generate_schema.py",
+]
