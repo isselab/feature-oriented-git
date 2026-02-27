@@ -15,6 +15,14 @@ struct Cli {
 enum Commands {
     /// Initialize variant management support in the git repository
     Init,
+    /// Derive a new variant from the specified set of features
+    Derive {
+        /// The name of the variant
+        name: String,
+        /// The set of features to use for the derivation
+        #[arg(short, long = "feature", required = true)]
+        features: Vec<String>,
+    },
     /// List the commits exist in the target branch but not in the current branch
     Diff {
         /// The branch to compare against
@@ -32,6 +40,9 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Init => {
             commands::init(&repo).context("Failed to initialize VMS support")?;
+        }
+        Commands::Derive { name, features } => {
+            commands::derive(&repo, &name, &features).context("Failed to derive variant")?;
         }
         Commands::Diff { target, reverse } => {
             commands::diff(&repo, &target, reverse).context(format!(
