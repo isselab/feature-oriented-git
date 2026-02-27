@@ -15,6 +15,14 @@ struct Cli {
 enum Commands {
     /// Initialize variant management support in the git repository
     Init,
+    /// List the commits exist in the target branch but not in the current branch
+    Diff {
+        /// The branch to compare against
+        target: String,
+        /// Swap the current branch and target when computing the diff
+        #[arg(short, long)]
+        reverse: bool,
+    },
 }
 
 fn main() -> Result<()> {
@@ -24,6 +32,12 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Init => {
             commands::init(&repo).context("Failed to initialize VMS support")?;
+        }
+        Commands::Diff { target, reverse } => {
+            commands::diff(&repo, &target, reverse).context(format!(
+                "Failed to diff current branch against '{}'",
+                target
+            ))?;
         }
     }
     Ok(())
