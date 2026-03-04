@@ -31,6 +31,12 @@ enum Commands {
         #[arg(short, long)]
         reverse: bool,
     },
+    /// List items in the repository
+    List {
+        #[arg(short, long)]
+        /// Type of the item to list
+        r#type: commands::list::ItemType,
+    },
 }
 
 fn main() -> Result<()> {
@@ -49,6 +55,9 @@ fn main() -> Result<()> {
                 "Failed to diff current branch against '{}'",
                 target
             ))?;
+        }
+        Commands::List { r#type } => {
+            commands::list(&repo, r#type).context("Failed to list variants")?
         }
     }
     Ok(())
