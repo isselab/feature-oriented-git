@@ -5,6 +5,11 @@ use std::path::{Path, PathBuf};
 
 use std::collections::{HashMap, HashSet};
 
+enum LineEdit {
+    Add { line: u32, content: Vec<u8> },
+    Delete { line: u32 },
+}
+
 fn create_variant_initial_commit(
     repo: &Repository,
     ref_name: &str,
@@ -29,32 +34,44 @@ fn create_variant_initial_commit(
     Ok(variant_head_oid)
 }
 
-fn extract_hunks(diff: Diff) -> HashMap<PathBuf, Vec<(u32, Vec<u8>)>> {
-    let mut additions: HashMap<PathBuf, Vec<(u32, Vec<u8>)>> = HashMap::new();
+fn extract_line_edits(diff: Diff) -> HashMap<PathBuf, Vec<LineEdit>> {
+    let mut edits: HashMap<PathBuf, Vec<LineEdit>> = HashMap::new();
     diff.foreach(
         &mut |_, _| true,
         None,
         None,
         Some(&mut |delta, _hunk, line| {
-            if line.origin() != '+' {
-                return true;
-            }
             let path = delta
                 .new_file()
                 .path()
                 .or_else(|| delta.old_file().path())
-                .unwrap();
+                .unwrap()
+                .to_path_buf();
 
-            let new_lineno = line.new_lineno().unwrap();
-            additions
-                .entry(path.to_path_buf())
-                .or_default()
-                .push((new_lineno, line.content().to_vec()));
+            match line.origin() {
+                '+' => {
+                    if let Some(new_lineno) = line.new_lineno() {
+                        edits.entry(path).or_default().push(LineEdit::Add {
+                            line: new_lineno,
+                            content: line.content().to_vec(),
+                        })
+                    }
+                }
+                '-' => {
+                    if let Some(old_lineno) = line.old_lineno() {
+                        edits
+                            .entry(path)
+                            .or_default()
+                            .push(LineEdit::Delete { line: old_lineno })
+                    }
+                }
+                _ => {}
+            }
             true
         }),
     )
     .unwrap();
-    additions
+    edits
 }
 
 fn get_file_bytes_from_tree(repo: &Repository, tree: &Tree, path: &Path) -> Result<Vec<u8>> {
@@ -98,18 +115,46 @@ fn ensure_length(lines: &mut Vec<Vec<u8>>, len: usize) {
     }
 }
 
-fn apply_additions(base: Vec<u8>, mut additions: Vec<(u32, Vec<u8>)>) -> Vec<u8> {
-    additions.sort_by_key(|(ln, _)| *ln);
+fn apply_changes(base: Vec<u8>, edits: Vec<LineEdit>) -> Vec<u8> {
+    let mut deletes = Vec::new();
+    let mut adds = Vec::new();
+
+    for edit in edits {
+        match edit {
+            LineEdit::Delete { .. } => deletes.push(edit),
+            LineEdit::Add { .. } => adds.push(edit),
+        }
+    }
+    deletes.sort_by_key(|edit| match edit {
+        LineEdit::Delete { line } => *line,
+        _ => unreachable!(),
+    });
+    adds.sort_by_key(|edit| match edit {
+        LineEdit::Add { line, .. } => *line,
+        _ => unreachable!(),
+    });
+    deletes.reverse();
+
     let mut lines = split_lines_including_newline(&base);
 
-    for (new_lineno, content) in additions {
-        let idx = (new_lineno as usize).saturating_sub(1);
+    for edit in deletes {
+        if let LineEdit::Delete { line } = edit {
+            let idx = (line as usize).saturating_sub(1);
+            if idx < lines.len() {
+                lines.remove(idx);
+            }
+        }
+    }
 
-        ensure_length(&mut lines, idx);
-        if idx >= lines.len() {
-            lines.push(content);
-        } else {
-            lines.insert(idx, content);
+    for edit in adds {
+        if let LineEdit::Add { line, content } = edit {
+            let idx = (line as usize).saturating_sub(1);
+            ensure_length(&mut lines, idx);
+            if idx >= lines.len() {
+                lines.push(content);
+            } else {
+                lines.insert(idx, content);
+            }
         }
     }
 
@@ -156,7 +201,7 @@ pub fn derive(repo: &Repository, name: &str, features: &[String]) -> Result<()> 
         let parent_tree = parent.tree()?;
 
         let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&commit_tree), None)?;
-        let additions = extract_hunks(diff);
+        let additions = extract_line_edits(diff);
 
         // write changes to disk without touching the worktree
         if !additions.is_empty() {
@@ -168,7 +213,7 @@ pub fn derive(repo: &Repository, name: &str, features: &[String]) -> Result<()> 
 
             for (path, contents) in additions {
                 let base = get_file_bytes_from_tree(repo, &variant_tree, &path)?;
-                let merged = apply_additions(base, contents);
+                let merged = apply_changes(base, contents);
 
                 let blob_oid = repo.blob(&merged)?;
                 let path_string = path.to_string_lossy().replace('\\', "/");
