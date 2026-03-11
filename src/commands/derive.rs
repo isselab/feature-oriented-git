@@ -118,9 +118,14 @@ fn apply_additions(base: Vec<u8>, mut additions: Vec<(u32, Vec<u8>)>) -> Vec<u8>
 
 pub fn derive(repo: &Repository, name: &str, features: &[String]) -> Result<()> {
     println!("Deriving variant '{}' with features: {:?}", name, features);
+
+    let config = repo.config()?.snapshot()?;
+    let user_name = config.get_str("user.name")?;
+    let user_email = config.get_str("user.email")?;
+    let sig = Signature::now(user_name, user_email)?;
+
     // create a new orphan branch
     let ref_name = format!("refs/heads/variant/{name}");
-    let sig = Signature::now("user", "user@example.com")?;
     let mut variant_head_oid = create_variant_initial_commit(repo, &ref_name, &sig)?;
 
     let target_features: HashSet<String> = features.iter().cloned().collect();
@@ -187,10 +192,11 @@ pub fn derive(repo: &Repository, name: &str, features: &[String]) -> Result<()> 
             let new_tree = repo.find_tree(new_tree_oid)?;
 
             let commit_msg = commit.message().unwrap();
+            let commit_author = commit.author();
             variant_head_oid = repo.commit(
                 Some(&ref_name),
-                &sig,
-                &sig,
+                &commit_author,
+                &commit_author,
                 commit_msg,
                 &new_tree,
                 &[&variant_parent],
