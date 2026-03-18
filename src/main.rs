@@ -22,6 +22,9 @@ enum Commands {
         /// The set of features to use for the derivation
         #[arg(short, long = "feature", required = true)]
         features: Vec<String>,
+        /// use the no-history derivation
+        #[arg(long = "history")]
+        history: bool,
     },
     /// List the commits exist in the target branch but not in the current branch
     Diff {
@@ -47,8 +50,17 @@ fn main() -> Result<()> {
         Commands::Init => {
             commands::init(&repo).context("Failed to initialize VMS support")?;
         }
-        Commands::Derive { name, features } => {
-            commands::derive(&repo, &name, &features).context("Failed to derive variant")?;
+        Commands::Derive {
+            name,
+            features,
+            history,
+        } => {
+            if history {
+                commands::derive(&repo, &name, &features).context("Failed to derive variant")?;
+            } else {
+                commands::derive_no_history(&repo, &name, &features)
+                    .context("Failed to derive variant")?;
+            }
         }
         Commands::Diff { target, reverse } => {
             commands::diff(&repo, &target, reverse).context(format!(
