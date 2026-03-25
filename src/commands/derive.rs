@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
-use git2::{BlameOptions, Commit, Oid, Repository, Status, TreeWalkResult};
+use git2::{BlameOptions, Commit, ObjectType, Oid, Repository, Status, Tree};
 use regex::Regex;
 
 use crate::config::{Variant, read_config};
@@ -42,20 +42,7 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let head = repo.head()?;
     let tree = head.peel_to_tree()?;
 
-    let mut tree_builder = repo.treebuilder(None)?;
-
-    tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-        if let Some(name) = entry.name() {
-            let path = Path::new(root).join(name);
-            let content = process_file(repo, &path, &target_features).unwrap();
-
-            let oid = repo.blob(content.as_bytes()).unwrap();
-            tree_builder.insert(path, oid, entry.filemode()).unwrap();
-        }
-        TreeWalkResult::Ok
-    })?;
-
-    let variant_tree_oid = tree_builder.write()?;
+    let variant_tree_oid = build_variant_tree(repo, &tree, Path::new(""), &target_features)?;
     let variant_tree = repo.find_tree(variant_tree_oid)?;
 
     repo.commit(
@@ -79,6 +66,41 @@ fn get_variant_spec(repo: &Repository, name: &str) -> Result<Variant> {
         .get(name)
         .ok_or_else(|| anyhow!("no variant found with name '{}'", name))?;
     Ok(variant.clone())
+}
+
+fn build_variant_tree(
+    repo: &Repository,
+    tree: &Tree,
+    base_path: &Path,
+    target_features: &HashSet<String>,
+) -> Result<Oid> {
+    let mut builder = repo.treebuilder(None)?;
+    for entry in tree.iter() {
+        let name = entry
+            .name()
+            .ok_or_else(|| anyhow!("tree entry without valid UTF-8 name"))?;
+        let full_path = base_path.join(name);
+
+        match entry.kind() {
+            Some(ObjectType::Blob) => {
+                let content = process_file(repo, &full_path, target_features)
+                    .with_context(|| format!("Failed to process file {}", full_path.display()))?;
+                let oid = repo.blob(content.as_bytes())?;
+                builder.insert(name, oid, entry.filemode())?;
+            }
+            Some(ObjectType::Tree) => {
+                let subtree = repo.find_tree(entry.id())?;
+                let subtree_oid = build_variant_tree(repo, &subtree, &full_path, target_features)
+                    .with_context(|| {
+                    format!("Failed to process directory: {}", full_path.display())
+                })?;
+                builder.insert(name, subtree_oid, entry.filemode())?;
+            }
+            _ => {}
+        }
+    }
+
+    Ok(builder.write()?)
 }
 
 fn process_file(
