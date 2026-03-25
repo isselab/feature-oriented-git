@@ -50,7 +50,7 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
             let content = process_file(repo, &path, &target_features).unwrap();
 
             let oid = repo.blob(content.as_bytes()).unwrap();
-            tree_builder.insert(path, oid, 0o100644).unwrap();
+            tree_builder.insert(path, oid, entry.filemode()).unwrap();
         }
         TreeWalkResult::Ok
     })?;
