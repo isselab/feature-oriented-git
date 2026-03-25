@@ -23,7 +23,6 @@ pub fn run(repo: &Repository, name: &str) -> Result<()> {
     let target_features: HashSet<String> = variant_spec.features.iter().cloned().collect();
     let ref_name = format!("refs/heads/variant/{}", variant_spec.name);
     let sig = repo.signature()?;
-    let variant_head_oid = create_variant_initial_commit(repo, &ref_name, &sig)?;
 
     let head = repo.head()?;
     let tree = head.peel_to_tree()?;
@@ -43,7 +42,6 @@ pub fn run(repo: &Repository, name: &str) -> Result<()> {
 
     let variant_tree_oid = tree_builder.write()?;
     let variant_tree = repo.find_tree(variant_tree_oid)?;
-    let variant_parent = repo.find_commit(variant_head_oid)?;
 
     repo.commit(
         Some(&ref_name),
@@ -54,7 +52,7 @@ pub fn run(repo: &Repository, name: &str) -> Result<()> {
             variant_spec.features
         ),
         &variant_tree,
-        &[&variant_parent],
+        &[],
     )?;
     Ok(())
 }
@@ -66,30 +64,6 @@ fn get_variant_spec(repo: &Repository, name: &str) -> Result<Variant> {
         .get(name)
         .ok_or_else(|| anyhow!("no variant found with name '{}'", name))?;
     Ok(variant.clone())
-}
-
-fn create_variant_initial_commit(
-    repo: &Repository,
-    ref_name: &str,
-    sig: &Signature,
-) -> Result<Oid> {
-    let tree_oid = repo
-        .treebuilder(None)?
-        .write()
-        .context("Failed to create empty tree.")?;
-    let tree = repo.find_tree(tree_oid)?;
-
-    let variant_head_oid = repo
-        .commit(
-            Some(ref_name),
-            sig,
-            sig,
-            "Variant initial commit\n",
-            &tree,
-            &[],
-        )
-        .context("Failed to create initial commit for variant")?;
-    Ok(variant_head_oid)
 }
 
 fn process_file(
