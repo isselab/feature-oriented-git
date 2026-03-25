@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod config;
 mod meta;
 
 use anyhow::{Context, Result};
@@ -7,7 +8,7 @@ use clap::Parser;
 use git2::Repository;
 
 use cli::{Cli, Commands};
-use commands::{add, commit, init};
+use commands::{add, commit, derive, init};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -22,6 +23,10 @@ fn main() -> Result<()> {
         }
         Commands::Commit { message } => {
             commit::run(&repo, &message).context("Failed commiting current index")?;
+        }
+        Commands::Derive { name } => {
+            derive::run(&repo, &name)
+                .with_context(|| format!("Failed to derive variant '{}'", name))?;
         }
     }
     Ok(())
