@@ -19,4 +19,10 @@ pub enum Commands {
         #[arg(short, long)]
         feature: String,
     },
+    /// Commit staged changes with feature metadata
+    Commit {
+        /// Commit message
+        #[arg(short, long)]
+        message: String,
+    },
 }

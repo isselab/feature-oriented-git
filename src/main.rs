@@ -7,7 +7,7 @@ use clap::Parser;
 use git2::Repository;
 
 use cli::{Cli, Commands};
-use commands::{add, init};
+use commands::{add, commit, init};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -19,6 +19,9 @@ fn main() -> Result<()> {
         }
         Commands::Add { files, feature } => {
             add::run(&repo, &files, &feature).context("Failed staging files with meta")?;
+        }
+        Commands::Commit { message } => {
+            commit::run(&repo, &message).context("Failed commiting current index")?;
         }
     }
     Ok(())
