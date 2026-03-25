@@ -4,12 +4,12 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
-use git2::{BlameOptions, Oid, Repository, Signature, Status, TreeWalkResult};
+use git2::{BlameOptions, Commit, Oid, Repository, Status, TreeWalkResult};
 use regex::Regex;
 
 use crate::config::{Variant, read_config};
 
-pub fn run(repo: &Repository, name: &str) -> Result<()> {
+pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let statuses = repo.statuses(None)?;
     for entry in statuses.iter() {
         let s = entry.status();
@@ -20,8 +20,23 @@ pub fn run(repo: &Repository, name: &str) -> Result<()> {
     }
 
     let variant_spec = get_variant_spec(repo, name).context("Failed to get variant spec")?;
-    let target_features: HashSet<String> = variant_spec.features.iter().cloned().collect();
     let ref_name = format!("refs/heads/variant/{}", variant_spec.name);
+
+    let variant_ref = repo.find_reference(&ref_name).ok();
+
+    let parent_refs = if let Some(variant_ref) = variant_ref {
+        if refresh {
+            let commit = variant_ref.peel_to_commit()?;
+            vec![commit]
+        } else {
+            anyhow::bail!("Variant already exists. Use --refresh to update it.");
+        }
+    } else {
+        vec![]
+    };
+    let parent_refs: Vec<&Commit> = parent_refs.iter().collect();
+
+    let target_features: HashSet<String> = variant_spec.features.iter().cloned().collect();
     let sig = repo.signature()?;
 
     let head = repo.head()?;
@@ -52,7 +67,7 @@ pub fn run(repo: &Repository, name: &str) -> Result<()> {
             variant_spec.features
         ),
         &variant_tree,
-        &[],
+        &parent_refs,
     )?;
     Ok(())
 }

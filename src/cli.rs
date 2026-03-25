@@ -29,5 +29,8 @@ pub enum Commands {
     Derive {
         /// Name of the variant entry in fog.toml
         name: String,
+        /// Refresh the variant if it already exists
+        #[arg(short, long)]
+        refresh: bool,
     },
 }

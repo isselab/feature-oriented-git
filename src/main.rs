@@ -24,8 +24,8 @@ fn main() -> Result<()> {
         Commands::Commit { message } => {
             commit::run(&repo, &message).context("Failed commiting current index")?;
         }
-        Commands::Derive { name } => {
-            derive::run(&repo, &name)
+        Commands::Derive { name, refresh } => {
+            derive::run(&repo, &name, refresh)
                 .with_context(|| format!("Failed to derive variant '{}'", name))?;
         }
     }
