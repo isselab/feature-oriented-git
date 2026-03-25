@@ -1,12 +1,13 @@
 mod cli;
 mod commands;
+mod meta;
 
 use anyhow::{Context, Result};
 use clap::Parser;
 use git2::Repository;
 
 use cli::{Cli, Commands};
-use commands::init;
+use commands::{add, init};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -15,6 +16,9 @@ fn main() -> Result<()> {
     match args.command {
         Commands::Init => {
             init::run(&repo).context("Failed to initialize varcs support")?;
+        }
+        Commands::Add { files, feature } => {
+            add::run(&repo, &files, &feature).context("Failed staging files with meta")?;
         }
     }
     Ok(())

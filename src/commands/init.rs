@@ -14,6 +14,9 @@ pub fn run(repo: &Repository) -> Result<()> {
         .parent()
         .context("Repository has no parent directory")?;
     let config_path = base_path.join("varcs.toml");
+    let meta_path = base_path.join(".git/varcs");
+
+    fs::create_dir(meta_path)?;
 
     let mut file = fs::OpenOptions::new()
         .write(true)
