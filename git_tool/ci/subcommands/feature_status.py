@@ -1,4 +1,5 @@
 from collections import defaultdict
+
 import typer
 
 from git_tool.feature_data.git_status_per_feature import (

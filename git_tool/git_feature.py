@@ -13,7 +13,6 @@ from git_tool.ci.subcommands.feature_info_all import all_feature_info
 from git_tool.ci.subcommands.feature_pre_commit import feature_pre_commit
 from git_tool.ci.subcommands.feature_status import feature_status
 
-
 app = typer.Typer(
     name="feature", no_args_is_help=True
 )  # "git feature --help" does not work, but "git-feature --help" does

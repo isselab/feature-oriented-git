@@ -22,7 +22,8 @@ dependencies = [
 ]
 
 [project.scripts]
-git-feature = "git_tool.__main__.py:app"
+git-feature = "git_tool.git_feature:app"
+git-variant = "git_tool.git_variant:app"
 feature-init-hooks = "git_tool.scripts_for_experiment.set_hooks_path:main"
 
 [build-system]
