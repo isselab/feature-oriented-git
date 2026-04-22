@@ -4,10 +4,12 @@ use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
+use chrono::Utc;
 use git2::{BlameOptions, Commit, ObjectType, Oid, Repository, Status, Tree};
 use regex::Regex;
 
 use crate::config::{Variant, read_config};
+use crate::meta::{VariantMeta, read_variant_meta, write_variant_meta};
 
 pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let statuses = repo.statuses(None)?;
@@ -40,6 +42,7 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let sig = repo.signature()?;
 
     let head = repo.head()?;
+    let head_commit = head.peel_to_commit()?;
     let tree = head.peel_to_tree()?;
 
     let variant_tree_oid = build_variant_tree(repo, &tree, Path::new(""), &target_features)?;
@@ -56,6 +59,17 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
         &variant_tree,
         &parent_refs,
     )?;
+
+    // Store info about the base state
+    let mut meta_store = read_variant_meta(repo).unwrap_or_default();
+    let meta = VariantMeta {
+        commit: head_commit.id().to_string(),
+        tree: tree.id().to_string(),
+        features: variant_spec.features.clone(),
+        created_at: Utc::now().to_rfc3339(),
+    };
+    meta_store.variants.insert(variant_spec.name.clone(), meta);
+    write_variant_meta(repo, &meta_store)?;
 
     // Switch to the derived variant branch
     repo.set_head(&ref_name)?;
@@ -114,29 +128,24 @@ fn process_file(
 ) -> Result<String> {
     let file = File::open(name)?;
     let reader = BufReader::new(file);
-    let mut lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+    let lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
     let mut output: Vec<String> = vec![];
 
-    let mut hidden_start: Option<usize> = Option::None;
+    let mut hidden_start: Option<usize> = None;
     let mut current_hidden_feature: Option<String> = None;
-
     let mut commit_cache: HashMap<Oid, Option<String>> = HashMap::new();
 
     let mut blame_opts = BlameOptions::new();
     let blame = repo.blame_file(Path::new(name), Some(&mut blame_opts))?;
 
-    for (i, line) in lines.iter_mut().enumerate() {
+    for (i, line) in lines.iter().enumerate() {
         let line_no = i + 1;
-
-        let hunk = blame
-            .get_line(line_no)
-            .context("Cant get line info in hunk")?;
-
+        let hunk = blame.get_line(line_no).context("Cant get line info")?;
         let oid = hunk.final_commit_id();
 
         let line_feature = commit_cache.entry(oid).or_insert_with(|| {
-            let commit = repo.find_commit(oid).unwrap();
-            let summary = commit.body().unwrap();
+            let commit = repo.find_commit(oid).ok()?;
+            let summary = commit.message()?;
             extract_feature_meta(summary).map(|s| s.to_string())
         });
 
@@ -146,30 +155,36 @@ fn process_file(
         };
 
         if is_visible {
-            if let (Some(start), Some(feature)) = (hidden_start, current_hidden_feature.take()) {
+            // Close existing hidden block if exists
+            if let (Some(start), Some(feature)) =
+                (hidden_start.take(), current_hidden_feature.take())
+            {
                 output.push(format!(
                     "# morph:{}-{} hidden feature '{}'",
                     start,
                     line_no - 1,
                     feature
                 ));
-                hidden_start = None;
             }
             output.push(line.clone());
-        } else if hidden_start.is_none() {
-            hidden_start = Some(line_no);
-            current_hidden_feature = line_feature.clone();
-        } else if current_hidden_feature.as_ref() != line_feature.as_ref()
-            && let Some(feature) = current_hidden_feature.take()
-        {
-            output.push(format!(
-                "// morph:{}-{} hidden feature '{}'",
-                hidden_start.unwrap(),
-                line_no,
-                feature
-            ));
-            hidden_start = Some(line_no);
-            current_hidden_feature = line_feature.clone();
+        } else {
+            if hidden_start.is_none() {
+                // New hidden block starts
+                hidden_start = Some(line_no);
+                current_hidden_feature = line_feature.clone();
+            } else if current_hidden_feature.as_ref() != line_feature.as_ref() {
+                // Feature changed while still in a hidden state: Close old, start new
+                if let Some(feature) = current_hidden_feature.take() {
+                    output.push(format!(
+                        "# morph:{}-{} hidden feature '{}'",
+                        hidden_start.unwrap(),
+                        line_no - 1,
+                        feature
+                    ));
+                }
+                hidden_start = Some(line_no);
+                current_hidden_feature = line_feature.clone();
+            }
         }
     }
 
@@ -181,6 +196,7 @@ fn process_file(
             feature
         ));
     }
+
     Ok(output.join("\n"))
 }
 
