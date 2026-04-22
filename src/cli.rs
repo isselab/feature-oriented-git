@@ -33,4 +33,6 @@ pub enum Commands {
         #[arg(short, long)]
         refresh: bool,
     },
+    /// Reconstruct the full file from the edited variant view
+    Putback {},
 }

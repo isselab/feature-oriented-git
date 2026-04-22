@@ -8,7 +8,7 @@ use clap::Parser;
 use git2::Repository;
 
 use cli::{Cli, Commands};
-use commands::{add, checkout, commit, init};
+use commands::{add, checkout, commit, init, putback};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -27,6 +27,9 @@ fn main() -> Result<()> {
         Commands::Checkout { name, refresh } => {
             checkout::run(&repo, &name, refresh)
                 .with_context(|| format!("Failed to derive variant '{}'", name))?;
+        }
+        Commands::Putback {} => {
+            putback::run(&repo).context("Failed to sync edited view")?;
         }
     }
     Ok(())
