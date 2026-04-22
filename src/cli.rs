@@ -25,8 +25,8 @@ pub enum Commands {
         #[arg(short, long)]
         message: String,
     },
-    /// Derive a variant with the features specified in fog.toml
-    Derive {
+    /// Checkout a variant with the features specified in fog.toml
+    Checkout {
         /// Name of the variant entry in fog.toml
         name: String,
         /// Refresh the variant if it already exists

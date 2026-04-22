@@ -8,7 +8,7 @@ use clap::Parser;
 use git2::Repository;
 
 use cli::{Cli, Commands};
-use commands::{add, commit, derive, init};
+use commands::{add, checkout, commit, init};
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -24,8 +24,8 @@ fn main() -> Result<()> {
         Commands::Commit { message } => {
             commit::run(&repo, &message).context("Failed commiting current index")?;
         }
-        Commands::Derive { name, refresh } => {
-            derive::run(&repo, &name, refresh)
+        Commands::Checkout { name, refresh } => {
+            checkout::run(&repo, &name, refresh)
                 .with_context(|| format!("Failed to derive variant '{}'", name))?;
         }
     }
