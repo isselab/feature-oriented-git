@@ -115,8 +115,12 @@ fn process_file(
     let file = File::open(name)?;
     let reader = BufReader::new(file);
     let mut lines: Vec<String> = reader.lines().collect::<Result<_, _>>()?;
+    let mut output: Vec<String> = vec![];
 
-    let mut commit_cache: HashMap<Oid, bool> = HashMap::new();
+    let mut hidden_start: Option<usize> = Option::None;
+    let mut current_hidden_feature: Option<String> = None;
+
+    let mut commit_cache: HashMap<Oid, Option<String>> = HashMap::new();
 
     let mut blame_opts = BlameOptions::new();
     let blame = repo.blame_file(Path::new(name), Some(&mut blame_opts))?;
@@ -130,19 +134,54 @@ fn process_file(
 
         let oid = hunk.final_commit_id();
 
-        let contains_feature = commit_cache.entry(oid).or_insert_with(|| {
+        let line_feature = commit_cache.entry(oid).or_insert_with(|| {
             let commit = repo.find_commit(oid).unwrap();
             let summary = commit.body().unwrap();
-            extract_feature_meta(summary).is_some_and(|feature| target_features.contains(feature))
+            extract_feature_meta(summary).map(|s| s.to_string())
         });
 
-        if !*contains_feature {
-            *line = String::new();
+        let is_visible = match line_feature {
+            Some(f) => target_features.contains(f),
+            None => true,
+        };
+
+        if is_visible {
+            if let (Some(start), Some(feature)) = (hidden_start, current_hidden_feature.take()) {
+                output.push(format!(
+                    "# morph:{}-{} hidden feature '{}'",
+                    start,
+                    line_no - 1,
+                    feature
+                ));
+                hidden_start = None;
+            }
+            output.push(line.clone());
+        } else if hidden_start.is_none() {
+            hidden_start = Some(line_no);
+            current_hidden_feature = line_feature.clone();
+        } else if current_hidden_feature.as_ref() != line_feature.as_ref()
+            && let Some(feature) = current_hidden_feature.take()
+        {
+            output.push(format!(
+                "// morph:{}-{} hidden feature '{}'",
+                hidden_start.unwrap(),
+                line_no,
+                feature
+            ));
+            hidden_start = Some(line_no);
+            current_hidden_feature = line_feature.clone();
         }
     }
 
-    // lines.retain(|line| !line.is_empty());
-    Ok(lines.join("\n"))
+    if let (Some(start), Some(feature)) = (hidden_start, current_hidden_feature) {
+        output.push(format!(
+            "# morph:{}-{} hidden feature '{}'",
+            start,
+            lines.len(),
+            feature
+        ));
+    }
+    Ok(output.join("\n"))
 }
 
 // TODO: building each time can be expensive. Look for an alternative
