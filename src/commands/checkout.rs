@@ -56,6 +56,10 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
         &variant_tree,
         &parent_refs,
     )?;
+
+    // Switch to the derived variant branch
+    repo.set_head(&ref_name)?;
+    repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
     Ok(())
 }
 
