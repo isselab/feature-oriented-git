@@ -1,7 +1,5 @@
-use std::path::Path;
-
 use anyhow::{Context, Result};
-use git2::Repository;
+use git2::{IndexAddOption, Repository};
 
 use crate::meta::{read_meta, write_meta};
 
@@ -20,11 +18,9 @@ pub fn run(repo: &Repository, files: &[String], feature: &str) -> Result<()> {
     }
 
     let mut index = repo.index()?;
-    for file in files {
-        index
-            .add_path(Path::new(file))
-            .with_context(|| format!("Failed to stage path '{}'", file))?;
-    }
+    index
+        .add_all(files, IndexAddOption::DEFAULT, None)
+        .with_context(|| "Failed to stage provided paths")?;
     index.write()?;
 
     Ok(())
