@@ -213,7 +213,7 @@ mod tests {
 
     #[test]
     fn extracts_feature_when_present() {
-        let msg = "chore: init\n\nFeature: core";
+        let msg = "chore: init\n\nFEATURE: core";
         assert_eq!(extract_feature_meta(msg), Some("core"));
     }
 
@@ -222,8 +222,8 @@ mod tests {
         let msg = "\
 chore: initialize fog support in repo
 
-ChangeId: de9378ec963973b367aa0ad706fa006af3ce65da
-Feature: core";
+CHANGE_ID: de9378ec963973b367aa0ad706fa006af3ce65da
+FEATURE: core";
         assert_eq!(extract_feature_meta(msg), Some("core"));
     }
 
