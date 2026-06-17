@@ -1,0 +1,75 @@
+Module.         Module ::= [Declaration] ;
+
+EnumDecl.       Declaration ::= "enum" PosIdent "=" [EnumId] ;
+ElementDecl.    Declaration ::= Element ;
+
+Clafer.         Clafer ::= Abstract GCard PosIdent Super Reference Card Init Elements ;
+Constraint.     Constraint ::= "[" Exp "]" ;
+
+AbstractEmpty.  Abstract ::= ;
+Abstract.       Abstract ::= "abstract" ;
+
+ElementsEmpty.  Elements ::= ;
+ElementsList.   Elements ::= "{" [Element] "}" ;
+
+Subclafer.      Element ::= Clafer ;
+Subconstraint.  Element ::= Constraint ;
+
+SuperEmpty.     Super ::= ;
+SuperSome.      Super ::= ":" Exp8 ;
+
+ReferenceEmpty. Reference ::= ;
+ReferenceSet.   Reference ::= "->" Exp6 ;
+
+InitEmpty.      Init ::= ;
+InitConstant.   Init ::= "=" Exp ;
+
+GCardEmpty.     GCard ::= ;
+GCardXor.       GCard ::= "xor" ;
+GCardOr.        GCard ::= "or" ;
+GCardMux.       GCard ::= "mux" ;
+GCardOpt.       GCard ::= "opt" ;
+GCardInterval.  GCard ::= NCard ;
+
+CardEmpty.      Card ::= ;
+CardLone.       Card ::= "?" ;
+CardSome.       Card ::= "+" ;
+CardAny.        Card ::= "*" ;
+CardNum.        Card ::= PosInteger ;
+CardInterval.   Card ::= NCard ;
+
+NCard.          NCard  ::= PosInteger ".." ExInteger ;
+ExIntegerAst.   ExInteger ::= "*" ;
+ExIntegerNum.   ExInteger ::= PosInteger ;
+
+-- Boolean & Relational Expressions (Precedence modeled via Exp levels)
+EIff.           Exp   ::= Exp "<=>" Exp1 ;
+EImplies.       Exp1  ::= Exp1 "=>"  Exp2 ;
+EOr.            Exp2  ::= Exp2 "||"  Exp3 ;
+EXor.           Exp3  ::= Exp3 "xor" Exp4 ;
+EAnd.           Exp4  ::= Exp4 "&&"  Exp5 ;
+ENeg.           Exp5  ::= "!" Exp5 ;
+ELt.            Exp6  ::= Exp6 "<"  Exp7 ;
+EGt.            Exp6  ::= Exp6 ">"  Exp7 ;
+EEq.            Exp6  ::= Exp6 "="  Exp7 ;
+ELte.           Exp6  ::= Exp6 "<=" Exp7 ;
+EGte.           Exp6  ::= Exp6 ">=" Exp7 ;
+ENeq.           Exp6  ::= Exp6 "!=" Exp7 ;
+EIn.            Exp6  ::= Exp6 "in" Exp7 ;
+ENin.           Exp6  ::= Exp6 "not" "in" Exp7 ;
+EAdd.           Exp7  ::= Exp7 "+" Exp8 ;
+ESub.           Exp7  ::= Exp7 "-" Exp8 ;
+EJoin.          Exp8  ::= Exp8 "." Exp9 ;
+
+EQuantExp.      Exp9  ::= Quant Exp10 ;
+ClaferId.       Exp10 ::= PosIdent ;
+EInt.           Exp10 ::= PosInteger ;
+EStr.           Exp10 ::= PosString ;
+EParens.        Exp10 ::= "(" Exp ")" ;
+
+QuantNo.        Quant ::= "no" ;
+QuantNot.       Quant ::= "not" ;
+QuantLone.      Quant ::= "lone" ;
+QuantOne.       Quant ::= "one" ;
+QuantSome.      Quant ::= "some" ;
+QuantAll.       Quant ::= "all" ;

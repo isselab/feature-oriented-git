@@ -2,6 +2,7 @@ mod cli;
 mod commands;
 mod config;
 mod meta;
+mod parser;
 
 use anyhow::{Context, Result};
 use clap::Parser;

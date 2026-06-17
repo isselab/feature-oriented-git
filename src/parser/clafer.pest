@@ -1,0 +1,65 @@
+// --- Entry Point ---
+module = { SOI ~ declaration* ~ EOI }
+
+// --- Declarations ---
+declaration = { enum_decl | element }
+enum_decl   = { "enum" ~ ident ~ "=" ~ ident ~ ("|" ~ ident)* }
+element     = { clafer | constraint }
+
+// --- Clafer Core ---
+clafer = { 
+    abstract_mod? ~ 
+    gcard? ~ 
+    ident ~ 
+    super_mod? ~ 
+    ref_mod? ~ 
+    card? ~ 
+    init_mod? ~ 
+    elements? 
+}
+
+constraint = { "[" ~ expr ~ "]" }
+elements   = { "{" ~ element* ~ "}" }
+
+// --- Modifiers ---
+abstract_mod = { "abstract" }
+super_mod    = { ":" ~ expr }
+ref_mod      = { "->" ~ expr }
+init_mod     = { "=" ~ expr }
+
+// --- Cardinalities ---
+gcard = { "xor" | "or" | "mux" | "opt" | ncard }
+card  = { "?" | "+" | "*" | ncard | int }
+ncard = { int ~ ".." ~ (int | "*") }
+
+// --- Expressions ---
+expr          =  { iff_expr }
+iff_expr      =  { implies_expr ~ ("<=>" ~ implies_expr)* }
+implies_expr  =  { or_expr ~ ("=>" ~ or_expr)* }
+or_expr       =  { xor_expr ~ ("||" ~ xor_expr)* }
+xor_expr      =  { and_expr ~ ("xor" ~ and_expr)* }
+and_expr      =  { cmp_expr ~ ("&&" ~ cmp_expr)* }
+
+cmp_expr      =  { add_expr ~ (cmp_op ~ add_expr)* }
+cmp_op        =  { "<=" | ">=" | "<" | ">" | "=" | "!=" | "not in" | "in" }
+
+add_expr      =  { join_expr ~ (add_op ~ join_expr)* }
+add_op        =  { "+" | "-" }
+
+join_expr     =  { primary ~ ("." ~ primary)* }
+
+primary       =  { unary_op* ~ quantifier? ~ (ident | int | str | "(" ~ expr ~ ")") }
+unary_op      =  { "!" | "-" }
+quantifier    =  { "no" | "not" | "lone" | "one" | "some" | "all" }
+
+// --- Tokens ---
+ident = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_" | "'")* }
+int   = @{ ASCII_DIGIT+ }
+str   = @{ "\"" ~ (!"\"" ~ ANY)* ~ "\"" }
+
+// --- Implicit Whitespace & Comments (Silent) ---
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT    = _{
+    ("//" ~ (!"\n" ~ ANY)*) |
+    ("/*" ~ (!"*/" ~ ANY)* ~ "*/") 
+}
