@@ -8,8 +8,9 @@ use chrono::Utc;
 use git2::{BlameOptions, Commit, ObjectType, Oid, Repository, Status, Tree};
 use regex::Regex;
 
-use crate::config::{Variant, read_config};
 use crate::meta::{VariantMeta, read_variant_meta, write_variant_meta};
+use crate::parser::evaluator::Evaluator;
+use crate::parser::grammar::parse_clafer_module;
 
 pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let statuses = repo.statuses(None)?;
@@ -21,8 +22,8 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
         }
     }
 
-    let variant_spec = get_variant_spec(repo, name).context("Failed to get variant spec")?;
-    let ref_name = format!("refs/heads/variant/{}", variant_spec.name);
+    let features = derive_features(repo, name).context("Failed to derive variant from model")?;
+    let ref_name = format!("refs/heads/variant/{}", name);
 
     let variant_ref = repo.find_reference(&ref_name).ok();
 
@@ -38,7 +39,7 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     };
     let parent_refs: Vec<&Commit> = parent_refs.iter().collect();
 
-    let target_features: HashSet<String> = variant_spec.features.iter().cloned().collect();
+    let target_features: HashSet<String> = features.iter().cloned().collect();
     let sig = repo.signature()?;
 
     let head = repo.head()?;
@@ -52,10 +53,7 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
         Some(&ref_name),
         &sig,
         &sig,
-        &format!(
-            "variant derivation with features {:?}",
-            variant_spec.features
-        ),
+        &format!("variant derivation with features {:?}", features),
         &variant_tree,
         &parent_refs,
     )?;
@@ -65,10 +63,10 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     let meta = VariantMeta {
         commit: head_commit.id().to_string(),
         tree: tree.id().to_string(),
-        features: variant_spec.features.clone(),
+        features: features.clone(),
         created_at: Utc::now().to_rfc3339(),
     };
-    meta_store.variants.insert(variant_spec.name.clone(), meta);
+    meta_store.variants.insert(name.to_string(), meta);
     write_variant_meta(repo, &meta_store)?;
 
     // Switch to the derived variant branch
@@ -77,13 +75,23 @@ pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
     Ok(())
 }
 
-fn get_variant_spec(repo: &Repository, name: &str) -> Result<Variant> {
-    let config = read_config(repo)?;
-    let variant = config
-        .variants
-        .get(name)
-        .ok_or_else(|| anyhow!("no variant found with name '{}'", name))?;
-    Ok(variant.clone())
+/// Resolves the instance `name` against the project's `model.cfr` feature model,
+/// returning the sorted list of included leaf features.
+fn derive_features(repo: &Repository, name: &str) -> Result<Vec<String>> {
+    let base_path = repo
+        .path()
+        .parent()
+        .context("Repository has no parent directory")?;
+    let model_path = base_path.join("model.cfr");
+    let source = std::fs::read_to_string(&model_path)
+        .with_context(|| format!("Failed to read model file {}", model_path.display()))?;
+
+    let decls = parse_clafer_module(&source);
+    let config = Evaluator::new(decls).resolve_instance(name)?;
+
+    let mut features: Vec<String> = config.included.into_iter().collect();
+    features.sort();
+    Ok(features)
 }
 
 fn build_variant_tree(

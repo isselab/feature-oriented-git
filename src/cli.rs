@@ -25,9 +25,9 @@ pub enum Commands {
         #[arg(short, long)]
         message: String,
     },
-    /// Checkout a variant with the features specified in fog.toml
+    /// Checkout a variant derived from the feature model in model.cfr
     Checkout {
-        /// Name of the variant entry in fog.toml
+        /// Name of the variant instance in model.cfr
         name: String,
         /// Refresh the variant if it already exists
         #[arg(short, long)]
