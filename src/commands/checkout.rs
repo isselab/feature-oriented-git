@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow};
 use chrono::Utc;
-use git2::{BlameOptions, Commit, ObjectType, Oid, Repository, Status, Tree};
+use git2::{BlameOptions, Commit, ObjectType, Oid, Repository, Status, StatusOptions, Tree};
 use regex::Regex;
 
 use crate::meta::{VariantMeta, read_variant_meta, write_variant_meta};
@@ -13,13 +13,12 @@ use crate::parser::evaluator::Evaluator;
 use crate::parser::grammar::parse_clafer_module;
 
 pub fn run(repo: &Repository, name: &str, refresh: bool) -> Result<()> {
-    let statuses = repo.statuses(None)?;
-    for entry in statuses.iter() {
-        let s = entry.status();
-        if s != Status::CURRENT {
-            println!("Repository is not clean!");
-            return Ok(());
-        }
+    // Only uncommitted changes to tracked files should block a derivation.
+    let mut status_opts = StatusOptions::new();
+    status_opts.include_untracked(false).include_ignored(false);
+    let statuses = repo.statuses(Some(&mut status_opts))?;
+    if statuses.iter().any(|e| e.status() != Status::CURRENT) {
+        anyhow::bail!("Repository has uncommitted changes; commit or stash them first.");
     }
 
     let features = derive_features(repo, name).context("Failed to derive variant from model")?;
