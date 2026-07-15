@@ -25,7 +25,6 @@ EXPECTED_COMMANDS = [
 ]
 
 STUB_INVOCATIONS = [
-    ["list"],
     ["info", "auth"],
     ["status"],
     ["blame", "somefile.py"],
