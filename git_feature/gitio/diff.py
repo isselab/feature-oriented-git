@@ -43,7 +43,16 @@ def commit_diff(
     else:
         diff = commit.tree.diff_to_tree(swap=True, context_lines=context_lines)
     diff.find_similar()
+    return _convert_diff(diff)
 
+
+def worktree_diff(repo: pygit2.Repository, context_lines: int = 0) -> list[FileDiff]:
+    """Diff HEAD against the working directory, staged and unstaged changes included."""
+    diff = repo.diff("HEAD", context_lines=context_lines)
+    return _convert_diff(diff)
+
+
+def _convert_diff(diff: pygit2.Diff) -> list[FileDiff]:
     files = []
     for patch in diff:
         if patch is None:
