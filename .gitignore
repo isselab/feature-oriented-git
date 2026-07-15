@@ -1,0 +1,29 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Legacy artifacts kept locally but not on this branch (live on `main`)
+master_roethemeyer_featureorientedgit.pdf
+target/
+
+# Local dev working docs (not part of the repo)
+/DESIGN.md
+/CLAUDE.md
+plan.md
+evaluation-plan.md
+evaluation/
+report.md
+HOW-IT-WORKS.md
+migration.md
+
+# Claude Code local tooling state, not shared project config
+.claude/

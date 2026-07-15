@@ -1,0 +1,11 @@
+"""`git feature info` — show a feature's files, commits, authors, and branches."""
+
+from typing import Any
+
+import typer
+
+from . import not_implemented
+
+
+def run(ctx: typer.Context, **kwargs: Any) -> None:
+    not_implemented(ctx)
