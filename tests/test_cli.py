@@ -25,7 +25,6 @@ EXPECTED_COMMANDS = [
 ]
 
 STUB_INVOCATIONS = [
-    ["checkout", "minimal", "--dry-run"],
     ["variant", "list"],
     ["view", "minimal"],
     ["putback"],
