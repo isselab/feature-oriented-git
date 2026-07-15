@@ -25,7 +25,6 @@ EXPECTED_COMMANDS = [
 ]
 
 STUB_INVOCATIONS = [
-    ["annotate"],
     ["list"],
     ["info", "auth"],
     ["status"],
