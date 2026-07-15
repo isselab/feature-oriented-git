@@ -1,5 +1,7 @@
 """ChangeId minting and the SHA ↔ change-id map over the store."""
 
+from collections.abc import Iterator
+
 import pygit2
 from ulid import ULID
 
@@ -22,6 +24,10 @@ class ChangeIdMap:
     def get(self, sha: str) -> ChangeIdRecord | None:
         """Return the record for a commit sha, or None if unmapped."""
         return self._store.get_changeid(sha)
+
+    def iter_records(self) -> Iterator[ChangeIdRecord]:
+        """Yield every record in the map."""
+        return self._store.iter_changeids()
 
     def shas_for(self, change_id: str) -> list[str]:
         """Return every sha mapped to a change-id (rewrites and cherry-picks share one)."""
