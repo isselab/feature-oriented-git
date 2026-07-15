@@ -40,10 +40,20 @@ def anchor_from_hunk(change_id: str, path: str, hunk: Hunk) -> RegionAnchor:
 
 @dataclass(frozen=True)
 class Resolution:
-    """Where a region lives at a target commit, and how sure we are."""
+    """Where a region lives at a target commit, and how sure we are.
+
+    `span` is the overall extent; `runs` are the exact surviving line runs
+    (a region scattered by interleaved edits has several).
+    """
 
     span: tuple[int, int] | None
     confidence: Confidence
+    runs: tuple[tuple[int, int], ...] | None = None
+
+    def line_runs(self) -> tuple[tuple[int, int], ...]:
+        if self.runs:
+            return self.runs
+        return (self.span,) if self.span else ()
 
 
 class RegionResolver:
@@ -79,12 +89,17 @@ class RegionResolver:
             return None
         lines = blob_lines(self._repo, commit, anchor.path) or []
         length = anchor.new_span[1]
-        for run in _contiguous_runs(mine):
+        runs = _contiguous_runs(mine)
+        for run in runs:
             for start in range(run[0], run[0] + len(run) - length + 1):
                 window = lines[start - 1 : start - 1 + length]
                 if normalized_fingerprint(window) == anchor.fingerprint:
                     return Resolution((start, length), "exact")
-        return Resolution((mine[0], mine[-1] - mine[0] + 1), "moved")
+        return Resolution(
+            (mine[0], mine[-1] - mine[0] + 1),
+            "moved",
+            runs=tuple((run[0], len(run)) for run in runs),
+        )
 
     def _line_origins(self, path: str, commit: pygit2.Commit) -> list[str] | None:
         """One blame pass per (path, target commit), shared by every anchor."""

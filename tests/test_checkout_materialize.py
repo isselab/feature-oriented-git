@@ -162,3 +162,23 @@ def test_verify_only_without_a_variant_fails(runner: CliRunner, fixture: Variant
     result = runner.invoke(app, ["checkout", "Minimal", "--verify-only"])
     assert result.exit_code == 1
     assert "never been derived" in result.output
+
+
+def test_scattered_kept_region_does_not_false_overlap(
+    runner: CliRunner, fixture: VariantRepo
+) -> None:
+    # a kept region whose lines are interleaved with a removed region must not
+    # be treated as one big span covering the removed lines
+    original = "def top():\n    return 1\n\ndef bottom():\n    return 2\n"
+    with_auth_inside = (
+        "def top():\n    return 1\n\ndef auth():\n    return check()\n\ndef bottom():\n"
+        "    return 2\n"
+    )
+    core_sha = fixture.builder.commit("core pair", files={"core2.py": original})
+    auth_sha = fixture.builder.commit("auth inserted", files={"core2.py": with_auth_inside})
+    assert runner.invoke(app, ["annotate", core_sha, "--feature", "core"]).exit_code == 0
+    assert runner.invoke(app, ["annotate", auth_sha, "--feature", "auth"]).exit_code == 0
+
+    result = runner.invoke(app, ["checkout", "Minimal", "--no-switch"])
+    assert result.exit_code == 0, result.output
+    assert _variant_blob(fixture.builder, "Minimal", "core2.py") == original.encode()
