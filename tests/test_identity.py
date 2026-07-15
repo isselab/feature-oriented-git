@@ -38,6 +38,17 @@ class TestChangeIdMap:
         assert new.change_id == old.change_id
         assert set(cid_map.shas_for(old.change_id)) == {"aa" * 20, "bb" * 20}
 
+    def test_migrate_overwrites_a_stray_mapping_of_the_new_sha(self) -> None:
+        # On amend, post-commit mints for the new sha before post-rewrite runs;
+        # the old sha's change-id must win.
+        cid_map = ChangeIdMap(MemoryStore())
+        old = cid_map.insert("aa" * 20)
+        cid_map.insert("bb" * 20)  # stray id minted by post-commit
+        assert cid_map.migrate("aa" * 20, "bb" * 20)
+        new = cid_map.get("bb" * 20)
+        assert new is not None
+        assert new.change_id == old.change_id
+
     def test_migrate_of_unmapped_sha_is_a_noop(self) -> None:
         cid_map = ChangeIdMap(MemoryStore())
         assert not cid_map.migrate("aa" * 20, "bb" * 20)
