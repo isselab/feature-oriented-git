@@ -72,6 +72,8 @@ class TestPostRewrite:
         assert old_record is not None
 
         new_sha = builder.amend("work, amended", files={"a.txt": "a\nb\nc\n"})
+        # real git fires post-commit for the amended commit *before* post-rewrite
+        runner.invoke(app, ["hook-run", "post-commit"])
         result = runner.invoke(app, ["hook-run", "post-rewrite"], input=f"{old_sha} {new_sha}\n")
         assert result.exit_code == 0, result.output
         new_record = _cid_map(builder).get(new_sha)
