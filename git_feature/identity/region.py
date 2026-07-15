@@ -53,6 +53,7 @@ class RegionResolver:
         self._repo = repo
         self._map = cid_map
         self._cache: dict[tuple[str, str, tuple[int, int], str, str], Resolution] = {}
+        self._origins_cache: dict[tuple[str, str], list[str] | None] = {}
 
     def resolve(self, anchor: RegionAnchor, target: str | pygit2.Commit) -> Resolution:
         commit = resolve_commit(self._repo, target)
@@ -69,7 +70,7 @@ class RegionResolver:
         return resolution
 
     def _blame_forward(self, anchor: RegionAnchor, commit: pygit2.Commit) -> Resolution | None:
-        origins = line_origins(self._repo, commit, anchor.path)
+        origins = self._line_origins(anchor.path, commit)
         if origins is None:
             return None
         shas = set(self._map.shas_for(anchor.change_id))
@@ -84,6 +85,13 @@ class RegionResolver:
                 if normalized_fingerprint(window) == anchor.fingerprint:
                     return Resolution((start, length), "exact")
         return Resolution((mine[0], mine[-1] - mine[0] + 1), "moved")
+
+    def _line_origins(self, path: str, commit: pygit2.Commit) -> list[str] | None:
+        """One blame pass per (path, target commit), shared by every anchor."""
+        key = (path, str(commit.id))
+        if key not in self._origins_cache:
+            self._origins_cache[key] = line_origins(self._repo, commit, path)
+        return self._origins_cache[key]
 
     def _fingerprint_search(self, anchor: RegionAnchor, commit: pygit2.Commit) -> Resolution | None:
         length = anchor.new_span[1]
