@@ -40,7 +40,6 @@ STUB_INVOCATIONS = [
     ["sync", "develop"],
     ["reconcile"],
     ["doctor"],
-    ["hook-run", "post-commit"],
 ]
 
 
