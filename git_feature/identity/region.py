@@ -134,17 +134,23 @@ class RegionResolver:
         return None
 
     def _original_lines(self, anchor: RegionAnchor) -> tuple[str, ...] | None:
-        """Recover the anchor's added lines from the frozen diff of its change."""
-        for sha in self._map.shas_for(anchor.change_id):
-            if sha not in self._repo:
+        return original_added_lines(self._repo, self._map, anchor)
+
+
+def original_added_lines(
+    repo: pygit2.Repository, cid_map: ChangeIdMap, anchor: RegionAnchor
+) -> tuple[str, ...] | None:
+    """Recover an anchor's added lines from the frozen diff of its change."""
+    for sha in cid_map.shas_for(anchor.change_id):
+        if sha not in repo:
+            continue
+        for file_diff in commit_diff(repo, sha):
+            if file_diff.new_path != anchor.path:
                 continue
-            for file_diff in commit_diff(self._repo, sha):
-                if file_diff.new_path != anchor.path:
-                    continue
-                for hunk in file_diff.hunks:
-                    if hunk.new_span == anchor.new_span and hunk.old_span == anchor.old_span:
-                        return hunk.added_lines
-        return None
+            for hunk in file_diff.hunks:
+                if hunk.new_span == anchor.new_span and hunk.old_span == anchor.old_span:
+                    return hunk.added_lines
+    return None
 
 
 def _contiguous_runs(line_numbers: list[int]) -> list[list[int]]:
