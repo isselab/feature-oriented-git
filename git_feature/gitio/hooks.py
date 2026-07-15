@@ -1,5 +1,7 @@
 """Chained git hook installation: a dispatcher per hook plus a hook.d directory."""
 
+import shlex
+import shutil
 from pathlib import Path
 
 import pygit2
@@ -27,8 +29,11 @@ exit $status
 
 _HOOK_SCRIPT = f"""#!/bin/sh
 {_HOOK_SCRIPT_MARKER}; safe to delete, reinstalled by 'git feature init'.
-command -v git-feature >/dev/null 2>&1 || exit 0
-git-feature hook-run {{name}} || echo "git-feature: {{name}} hook failed (ignored)" >&2
+# The absolute path is baked in so an unrelated 'git-feature' on PATH is never run.
+GIT_FEATURE_BIN={{binary}}
+[ -x "$GIT_FEATURE_BIN" ] || GIT_FEATURE_BIN=git-feature
+command -v "$GIT_FEATURE_BIN" >/dev/null 2>&1 || exit 0
+"$GIT_FEATURE_BIN" hook-run {{name}} || echo "git-feature: {{name}} hook failed (ignored)" >&2
 exit 0
 """
 
@@ -57,12 +62,17 @@ def install_hooks(repo: pygit2.Repository) -> list[str]:
             hook_path.chmod(0o755)
             actions.append(f"installed {name} dispatcher")
         our_hook = chain_dir / "50-git-feature"
-        script = _HOOK_SCRIPT.format(name=name)
+        script = _HOOK_SCRIPT.format(name=name, binary=shlex.quote(_own_binary()))
         if not our_hook.exists() or our_hook.read_text() != script:
             our_hook.write_text(script)
             our_hook.chmod(0o755)
             actions.append(f"installed {name}.d/50-git-feature")
     return actions
+
+
+def _own_binary() -> str:
+    """The git-feature executable installing the hooks (PATH lookup as fallback)."""
+    return shutil.which("git-feature") or "git-feature"
 
 
 def hooks_installed(repo: pygit2.Repository) -> dict[str, bool]:
