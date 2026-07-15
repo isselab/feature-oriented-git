@@ -52,6 +52,18 @@ class RepoBuilder:
         oid = self.repo.create_commit("HEAD", sig, sig, message, tree, parents)
         return str(oid)
 
+    def amend(self, message: str, files: dict[str, str] | None = None) -> str:
+        """Amend the HEAD commit (new message and/or files); returns the new sha."""
+        for relpath, content in (files or {}).items():
+            self.write(relpath, content)
+        index = self.repo.index
+        index.add_all()
+        index.write()
+        tree = index.write_tree()
+        head = self.repo[self.repo.head.target].peel(pygit2.Commit)
+        oid = self.repo.amend_commit(head, "HEAD", message=message, tree=tree)
+        return str(oid)
+
     def branch(self, name: str, at: str | None = None) -> None:
         """Create a branch at the given sha (default: current HEAD)."""
         target = self.repo[at] if at else self.repo[self.repo.head.target]
