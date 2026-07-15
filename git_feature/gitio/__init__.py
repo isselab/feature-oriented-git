@@ -2,6 +2,7 @@
 
 from .diff import FileDiff, Hunk, commit_diff, resolve_commit
 from .history import iter_all_commits, iter_commits, iter_range
+from .patchid import patch_id
 from .refio import RefUpdateConflict, compare_and_swap_ref, read_ref, write_ref
 from .repo import RepositoryNotFound, open_repository
 
@@ -16,6 +17,7 @@ __all__ = [
     "iter_commits",
     "iter_range",
     "open_repository",
+    "patch_id",
     "read_ref",
     "resolve_commit",
     "write_ref",
