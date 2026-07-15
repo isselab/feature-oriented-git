@@ -51,7 +51,10 @@ def main(
 @app.command()
 def init(
     ctx: typer.Context,
-    backfill: Annotated[bool, typer.Option(help="Mint change-ids for existing history.")] = True,
+    backfill: Annotated[
+        bool,
+        typer.Option(help="Mint change-ids for all existing history upfront (default: lazy)."),
+    ] = False,
     hooks: Annotated[bool, typer.Option(help="Install chained git hooks.")] = True,
 ) -> None:
     """Initialize the feature store, hooks, and a starter model.cfr."""
