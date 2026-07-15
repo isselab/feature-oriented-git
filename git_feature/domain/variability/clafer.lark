@@ -1,0 +1,56 @@
+// Clafer feature-modeling subset: feature tree, cardinalities, group
+// cardinalities, abstract models + instances, boolean constraints.
+// Anything beyond this (enums, references, arithmetic, quantifiers, joins)
+// is deliberately not in the grammar and fails to parse.
+
+module: declaration*
+
+?declaration: clafer | constraint
+
+clafer: ABSTRACT? gcard? NAME super_ref? card? elements?
+super_ref: ":" NAME
+elements: "{" declaration* "}"
+
+gcard: XOR | OR_KW | MUX | OPT_KW | ncard
+// A range between two clafer names ("a 1..3 b") is ambiguous: card of the
+// previous clafer vs gcard of the next. The pest original resolved it greedily
+// as card; the rule priority reproduces that choice.
+card.2: QMARK | PLUS | STAR | ncard | INT
+ncard: INT ".." (INT | STAR)
+
+constraint: "[" expr "]"
+
+?expr: iff_expr
+?iff_expr: implies_expr
+         | iff_expr "<=>" implies_expr        -> iff
+?implies_expr: or_expr
+             | implies_expr "=>" or_expr      -> implies
+?or_expr: xor_expr
+        | or_expr "||" xor_expr               -> or_
+?xor_expr: and_expr
+         | xor_expr XOR and_expr              -> xor
+?and_expr: unary_expr
+         | and_expr "&&" unary_expr           -> and_
+?unary_expr: atom
+           | "!" unary_expr                   -> not_
+           | NOT_KW unary_expr                -> not_
+?atom: NAME                                   -> ref
+     | "(" expr ")"
+
+// Keywords outrank NAME; \b keeps them from matching inside identifiers
+// (a feature may be called "optimize" but not literally "opt").
+ABSTRACT.2: /abstract\b/
+XOR.2: /xor\b/
+OR_KW.2: /or\b/
+MUX.2: /mux\b/
+OPT_KW.2: /opt\b/
+NOT_KW.2: /not\b|no\b/
+QMARK: "?"
+PLUS: "+"
+STAR: "*"
+NAME: /[A-Za-z][A-Za-z0-9_']*/
+INT: /[0-9]+/
+
+%ignore /[ \t\r\n]+/
+%ignore /\/\/[^\n]*/
+%ignore /\/\*([^*]|\*(?!\/))*\*\//
