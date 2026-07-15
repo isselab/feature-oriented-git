@@ -62,8 +62,15 @@ class RegionDecision(BaseModel):
     anchor: RegionAnchor
     presence: str
     included: bool
-    resolved_span: tuple[int, int] | None = None
+    resolved_span: tuple[int, int] | None = None  # overall extent (first..last line)
+    resolved_runs: list[tuple[int, int]] | None = None  # exact surviving line runs
     confidence: Confidence | None = None
+
+    def runs(self) -> list[tuple[int, int]]:
+        """The region's line runs; falls back to the overall span."""
+        if self.resolved_runs:
+            return self.resolved_runs
+        return [self.resolved_span] if self.resolved_span else []
 
 
 class DerivationManifest(BaseModel):

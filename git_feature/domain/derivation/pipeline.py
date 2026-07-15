@@ -106,6 +106,7 @@ def project(
                 presence=annotation.presence,
                 included=included,
                 resolved_span=resolution.span,
+                resolved_runs=list(resolution.runs) if resolution.runs else None,
                 confidence=resolution.confidence,
             )
         )
@@ -144,18 +145,23 @@ def _consistency_conflicts(decisions: list[RegionDecision]) -> list[Conflict]:
     for a, b in combinations(located, 2):
         if a.anchor.path != b.anchor.path or a.included == b.included:
             continue
-        assert a.resolved_span is not None and b.resolved_span is not None
-        if not _overlaps(a.resolved_span, b.resolved_span):
-            continue
         enabled, disabled = (a, b) if a.included else (b, a)
-        assert enabled.resolved_span is not None and disabled.resolved_span is not None
-        if _contained(enabled.resolved_span, disabled.resolved_span):
+        clash = [
+            (kept, removed)
+            for kept in enabled.runs()
+            for removed in disabled.runs()
+            if _overlaps(kept, removed)
+        ]
+        if not clash:
+            continue
+        kept_run, removed_run = clash[0]
+        if _contained(kept_run, removed_run):
             conflicts.append(
                 Conflict(
                     "dangling-dependency",
                     f"enabled region {enabled.presence!r} sits inside removed region"
                     f" {disabled.presence!r} in {enabled.anchor.path}"
-                    f" (lines {_span_text(enabled.resolved_span)})",
+                    f" (lines {_span_text(kept_run)})",
                     enabled.anchor.path,
                 )
             )
@@ -165,7 +171,7 @@ def _consistency_conflicts(decisions: list[RegionDecision]) -> list[Conflict]:
                     "overlap",
                     f"regions {enabled.presence!r} (kept) and {disabled.presence!r} (removed)"
                     f" overlap in {enabled.anchor.path}"
-                    f" (lines {_span_text(disabled.resolved_span)})",
+                    f" (lines {_span_text(removed_run)})",
                     enabled.anchor.path,
                 )
             )

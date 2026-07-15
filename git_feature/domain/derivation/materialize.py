@@ -10,11 +10,10 @@ from .pipeline import Conflict, Projection
 
 
 def removal_plan(projection: Projection) -> dict[str, list[tuple[int, int]]]:
-    """Spans to delete per file, from the projection's removed decisions."""
+    """Line runs to delete per file, from the projection's removed decisions."""
     plan: dict[str, list[tuple[int, int]]] = {}
     for decision in projection.removed:
-        if decision.resolved_span is not None:
-            plan.setdefault(decision.anchor.path, []).append(decision.resolved_span)
+        plan.setdefault(decision.anchor.path, []).extend(decision.runs())
     return plan
 
 
@@ -56,6 +55,11 @@ def verify_tree(
     for decision in decisions:
         content = _region_content(repo, cid_map, decision, base_sha)
         if not content:
+            continue
+        # Regions evolve: later commits may have rewritten these lines. Only what
+        # was literally present at the base can be demanded from (or denied to)
+        # the derived tree.
+        if not _content_present(repo, base_sha, decision.anchor.path, content):
             continue
         present = _content_present(repo, tree_rev, decision.anchor.path, content)
         if decision.included and not present:
