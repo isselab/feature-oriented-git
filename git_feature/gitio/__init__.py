@@ -1,5 +1,6 @@
 """Thin pygit2 wrappers: repository access, diffs, history walks, ref I/O."""
 
+from .blame import blob_lines, line_origins, tree_paths
 from .diff import FileDiff, Hunk, commit_diff, resolve_commit
 from .history import iter_all_commits, iter_commits, iter_range
 from .patchid import patch_id
@@ -11,14 +12,17 @@ __all__ = [
     "Hunk",
     "RefUpdateConflict",
     "RepositoryNotFound",
+    "blob_lines",
     "commit_diff",
     "compare_and_swap_ref",
     "iter_all_commits",
     "iter_commits",
     "iter_range",
+    "line_origins",
     "open_repository",
     "patch_id",
     "read_ref",
     "resolve_commit",
+    "tree_paths",
     "write_ref",
 ]
