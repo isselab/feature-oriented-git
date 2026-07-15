@@ -38,7 +38,7 @@ def run(
         return
 
     try:
-        assignment, base_sha = configure(repo, instance, base or "HEAD")
+        assignment, base_sha = configure(repo, instance, base or _default_base(repo, store))
     except DerivationError as exc:
         typer.echo(f"error: {exc}", err=True)
         raise typer.Exit(1) from None
@@ -96,6 +96,17 @@ def run(
         )
     if not no_switch:
         _switch(repo, refname)
+
+
+def _default_base(repo: pygit2.Repository, store: GitRefStore) -> str:
+    """HEAD — unless HEAD is a variant branch, whose recorded base is the real source."""
+    if not repo.head_is_unborn and repo.head.shorthand.startswith("variant/"):
+        current = repo.head.shorthand.removeprefix("variant/")
+        manifest = store.read_manifest(current)
+        if manifest is not None:
+            typer.echo(f"on {repo.head.shorthand}: deriving from its base commit")
+            return manifest.base_commit
+    return "HEAD"
 
 
 def _up_to_date(store: GitRefStore, instance: str, manifest: DerivationManifest) -> bool:
