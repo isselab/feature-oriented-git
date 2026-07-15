@@ -147,7 +147,12 @@ def test_missing_model_at_base_fails(runner: CliRunner, fixture: DryRunRepo) -> 
     assert "no model.cfr" in result.output
 
 
-def test_full_checkout_is_not_available_yet(runner: CliRunner, fixture: DryRunRepo) -> None:
-    result = runner.invoke(app, ["checkout", "Minimal"])
+def test_conflicts_block_materialization_too(runner: CliRunner, fixture: DryRunRepo) -> None:
+    result = runner.invoke(
+        app, ["annotate", fixture.ui_sha, "--feature", "core", "--path", "shared.py"]
+    )
+    assert result.exit_code == 0, result.output
+    result = runner.invoke(app, ["checkout", "AuthOnly", "--no-switch"])
     assert result.exit_code == 1
-    assert "--dry-run" in result.output
+    assert "cannot be materialized" in result.output
+    assert "refs/heads/variant/AuthOnly" not in fixture.builder.repo.references
