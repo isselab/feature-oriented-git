@@ -38,7 +38,6 @@ STUB_INVOCATIONS = [
     ["view", "minimal"],
     ["putback"],
     ["sync", "develop"],
-    ["doctor"],
 ]
 
 

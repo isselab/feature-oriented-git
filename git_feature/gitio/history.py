@@ -28,10 +28,18 @@ def iter_range(repo: pygit2.Repository, range_spec: str) -> Iterator[pygit2.Comm
     return iter_commits(repo, tip or "HEAD", exclude=[base])
 
 
-def iter_all_commits(repo: pygit2.Repository) -> Iterator[pygit2.Commit]:
-    """Yield every commit reachable from any reference, deduplicated."""
+def iter_all_commits(
+    repo: pygit2.Repository,
+    ignore_prefixes: tuple[str, ...] = ("refs/feature/",),
+) -> Iterator[pygit2.Commit]:
+    """Yield every commit reachable from any reference, deduplicated.
+
+    Refs under `ignore_prefixes` (default: the tool's own store ref) are skipped.
+    """
     walker = None
     for name in repo.references:
+        if name.startswith(ignore_prefixes):
+            continue
         ref = repo.references[name]
         try:
             target = ref.peel(pygit2.Commit)
