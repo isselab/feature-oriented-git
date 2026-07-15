@@ -49,11 +49,17 @@ class ChangeIdMap:
         return self.insert(sha, patch_id=patch_id), True
 
     def migrate(self, old_sha: str, new_sha: str, patch_id: str | None = None) -> bool:
-        """Carry an old sha's change-id over to its rewritten sha; False if old is unmapped."""
+        """Carry an old sha's change-id over to its rewritten sha; False if old is unmapped.
+
+        Overwrites any existing mapping of the new sha: on amend, git fires
+        post-commit (minting a stray id for the new sha) before post-rewrite,
+        and git's explicit old→new notification is the authoritative identity.
+        """
         old = self.get(old_sha)
         if old is None:
             return False
-        if self.get(new_sha) is None:
+        existing = self.get(new_sha)
+        if existing is None or existing.change_id != old.change_id:
             self.insert(new_sha, change_id=old.change_id, patch_id=patch_id)
         return True
 
