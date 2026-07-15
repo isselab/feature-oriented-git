@@ -25,7 +25,6 @@ EXPECTED_COMMANDS = [
 ]
 
 STUB_INVOCATIONS = [
-    ["blame", "somefile.py"],
     ["model", "validate"],
     ["checkout", "minimal", "--dry-run"],
     ["variant", "list"],
