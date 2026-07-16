@@ -69,8 +69,8 @@ def _resolved_regions(
         if annotation.anchor.path not in paths:
             continue
         resolution = resolver.resolve(annotation.anchor, "HEAD")
-        if resolution.span is not None:
-            regions.append((annotation.anchor.path, resolution.span, annotation.presence))
+        for run in resolution.line_runs():
+            regions.append((annotation.anchor.path, run, annotation.presence))
     return regions
 
 
