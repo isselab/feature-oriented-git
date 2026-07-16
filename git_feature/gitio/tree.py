@@ -51,15 +51,34 @@ def _rewrite(
 
 
 def create_commit(
-    repo: pygit2.Repository, tree: pygit2.Oid, message: str, parents: list[str]
+    repo: pygit2.Repository,
+    tree: pygit2.Oid,
+    message: str,
+    parents: list[str],
+    author: pygit2.Signature | None = None,
 ) -> str:
     """Create a commit object (no ref updated); returns its sha."""
     try:
         signature = repo.default_signature
     except (KeyError, pygit2.GitError):
         signature = pygit2.Signature("git-feature", "git-feature@localhost")
-    oid = repo.create_commit(None, signature, signature, message, tree, parents)
+    oid = repo.create_commit(None, author or signature, signature, message, tree, parents)
     return str(oid)
+
+
+def cherrypick_tree(
+    repo: pygit2.Repository, rev: str | pygit2.Commit, onto: str | pygit2.Commit
+) -> pygit2.Oid | None:
+    """Tree of replaying one commit's change onto another commit, or None on conflict."""
+    commit = resolve_commit(repo, rev)
+    onto_commit = resolve_commit(repo, onto)
+    ancestor: pygit2.Tree | pygit2.Oid = (
+        commit.parents[0].tree if commit.parents else repo.TreeBuilder().write()
+    )
+    index = repo.merge_trees(ancestor, onto_commit.tree, commit.tree)
+    if index.conflicts is not None:
+        return None
+    return index.write_tree(repo)
 
 
 def checkout_branch(repo: pygit2.Repository, refname: str, force: bool = False) -> None:
