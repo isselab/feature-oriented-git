@@ -15,7 +15,11 @@ def run(ctx: typer.Context, *, rev_range: str | None, verbose: bool) -> None:
     cid_map = ChangeIdMap(store)
     annotated_changes = set(store.list_annotated_changes())
 
-    commits = iter_range(repo, rev_range) if rev_range else iter_all_commits(repo)
+    try:
+        commits = iter_range(repo, rev_range) if rev_range else iter_all_commits(repo)
+    except ValueError as error:
+        typer.echo(f"error: {error}", err=True)
+        raise typer.Exit(1) from error
     rows = []
     for commit in commits:
         sha = str(commit.id)

@@ -180,8 +180,12 @@ def _report(ctx: typer.Context, projection: Projection, *, dry_run: bool) -> Non
         typer.echo("would remove:")
         for path in sorted(removals):
             for decision in removals[path]:
-                span = decision.resolved_span
-                lines = f"lines {span[0]}-{span[0] + max(span[1], 1) - 1}" if span else "unlocated"
+                runs = decision.runs()
+                lines = (
+                    ", ".join(f"lines {start}-{start + max(count, 1) - 1}" for start, count in runs)
+                    if runs
+                    else "unlocated"
+                )
                 typer.echo(f"  {path}: {lines}  [{decision.presence}] ({decision.confidence})")
     else:
         typer.echo("would remove: nothing")
