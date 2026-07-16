@@ -11,6 +11,7 @@ from .types import (
     DerivationManifest,
     FeatureDef,
     StoreMeta,
+    ViewSession,
 )
 
 _META_PATH = "meta.json"
@@ -89,6 +90,16 @@ class Store(ABC):
 
     def list_variants(self) -> list[str]:
         return [_basename(p, "variants/") for p in self._list("variants/")]
+
+    def read_view(self, name: str) -> ViewSession | None:
+        data = self._read(f"views/{name}.json")
+        return None if data is None else ViewSession.model_validate_json(data)
+
+    def write_view(self, session: ViewSession) -> None:
+        self._write(f"views/{session.instance}.json", _encode(session.model_dump_json(indent=2)))
+
+    def list_views(self) -> list[str]:
+        return [_basename(p, "views/") for p in self._list("views/")]
 
     def _read_shard(self, sha: str) -> dict[str, ChangeIdRecord]:
         data = self._read(_shard_path(sha))
