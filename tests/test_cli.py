@@ -24,10 +24,6 @@ EXPECTED_COMMANDS = [
     "doctor",
 ]
 
-STUB_INVOCATIONS = [
-    ["sync", "develop"],
-]
-
 
 @pytest.fixture
 def runner() -> CliRunner:
@@ -45,10 +41,3 @@ def test_hook_run_is_hidden(runner: CliRunner) -> None:
     result = runner.invoke(app, ["--help"])
     assert result.exit_code == 0
     assert "hook-run" not in result.output
-
-
-@pytest.mark.parametrize("argv", STUB_INVOCATIONS, ids=lambda argv: " ".join(argv))
-def test_stub_runs(runner: CliRunner, argv: list[str]) -> None:
-    result = runner.invoke(app, argv)
-    assert result.exit_code == 0, result.output
-    assert "not implemented yet" in result.output

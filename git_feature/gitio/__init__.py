@@ -6,7 +6,7 @@ from .history import iter_all_commits, iter_commits, iter_range
 from .patchid import patch_id
 from .refio import RefUpdateConflict, compare_and_swap_ref, read_ref, write_ref
 from .repo import RepositoryNotFound, open_repository
-from .tree import blob_data, checkout_branch, create_commit, rewrite_tree
+from .tree import blob_data, checkout_branch, cherrypick_tree, create_commit, rewrite_tree
 
 __all__ = [
     "FileDiff",
@@ -16,6 +16,7 @@ __all__ = [
     "blob_lines",
     "blob_data",
     "checkout_branch",
+    "cherrypick_tree",
     "commit_diff",
     "compare_and_swap_ref",
     "create_commit",
