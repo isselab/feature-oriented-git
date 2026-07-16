@@ -4,13 +4,15 @@ import json
 from importlib import metadata
 from pathlib import Path
 
+import pygit2
 import typer
 
 from ..gitio import RepositoryNotFound, open_repository
 from ..gitio.hooks import install_hooks
 from ..identity import ChangeIdMap
 from ..identity import backfill as backfill_change_ids
-from ..store import GitRefStore, StoreMeta
+from ..store import STORE_REF, GitRefStore, StoreMeta
+from .store import incoming_ref
 
 MODEL_FILE = "model.cfr"
 
@@ -63,6 +65,8 @@ def run(ctx: typer.Context, *, backfill: bool, hooks: bool) -> None:
     if hooks:
         actions.extend(install_hooks(repo))
 
+    actions.extend(_configure_store_refspecs(repo))
+
     if ctx.obj.get("json"):
         typer.echo(json.dumps({"initialized": not already_initialized, "actions": actions}))
         return
@@ -73,3 +77,16 @@ def run(ctx: typer.Context, *, backfill: bool, hooks: bool) -> None:
         typer.echo("already initialized, repaired missing pieces:")
     for action in actions:
         typer.echo(action)
+
+
+def _configure_store_refspecs(repo: pygit2.Repository) -> list[str]:
+    """Make plain `git fetch` keep each remote's store copy up to date."""
+    actions = []
+    for remote in repo.remotes:
+        if remote.name is None:
+            continue
+        refspec = f"+{STORE_REF}:{incoming_ref(remote.name)}"
+        if refspec not in remote.fetch_refspecs:
+            repo.remotes.add_fetch(remote.name, refspec)
+            actions.append(f"added store fetch refspec to remote {remote.name}")
+    return actions
