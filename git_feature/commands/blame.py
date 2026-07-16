@@ -25,11 +25,9 @@ def run(ctx: typer.Context, *, file: str, line: int | None) -> None:
         if annotation.anchor.path != file:
             continue
         resolution = resolver.resolve(annotation.anchor, "HEAD")
-        if resolution.span is None:
-            continue
-        start, count = resolution.span
-        for number in range(start, start + count):
-            conditions.setdefault(number, []).append(annotation.presence)
+        for start, count in resolution.line_runs():
+            for number in range(start, start + count):
+                conditions.setdefault(number, []).append(annotation.presence)
 
     rows = [
         {
