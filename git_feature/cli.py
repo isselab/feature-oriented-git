@@ -19,6 +19,7 @@ from .commands import model as model_cmd
 from .commands import putback as putback_cmd
 from .commands import reconcile as reconcile_cmd
 from .commands import status as status_cmd
+from .commands import store as store_cmd
 from .commands import sync as sync_cmd
 from .commands import variant as variant_cmd
 from .commands import view as view_cmd
@@ -198,6 +199,27 @@ def checkout(
 
 variant_app = typer.Typer(no_args_is_help=True)
 app.add_typer(variant_app, name="variant", help="Manage derived variants.")
+
+store_app = typer.Typer(no_args_is_help=True)
+app.add_typer(store_app, name="store", help="Share the feature store with remotes.")
+
+
+@store_app.command(name="push")
+def store_push(
+    ctx: typer.Context,
+    remote: Annotated[str, typer.Argument(help="Remote to push the store to.")] = "origin",
+) -> None:
+    """Push the feature store ref to a remote."""
+    store_cmd.run_push(ctx, remote_name=remote)
+
+
+@store_app.command(name="fetch")
+def store_fetch(
+    ctx: typer.Context,
+    remote: Annotated[str, typer.Argument(help="Remote to fetch the store from.")] = "origin",
+) -> None:
+    """Fetch a remote's feature store and merge it if the stores diverged."""
+    store_cmd.run_fetch(ctx, remote_name=remote)
 
 
 @variant_app.command(name="list")

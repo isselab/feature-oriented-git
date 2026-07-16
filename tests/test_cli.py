@@ -17,6 +17,7 @@ EXPECTED_COMMANDS = [
     "model",
     "checkout",
     "variant",
+    "store",
     "view",
     "putback",
     "sync",
