@@ -50,8 +50,9 @@ def test_sync_propagates_the_commit_and_its_change_id(
     result = runner.invoke(app, ["whatfeature", new_tip])
     assert result.exit_code == 0
     assert "ui" in result.output
-    # and the worktree was updated
+    # and the worktree was updated, leaving index and workdir clean
     assert (builder.path / "src/ui/render.py").exists()
+    assert builder.repo.status(untracked_files="no") == {}
 
 
 def test_synced_commits_are_not_offered_again(

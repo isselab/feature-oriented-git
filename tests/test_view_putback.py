@@ -101,6 +101,8 @@ def test_putback_refreshes_the_view_onto_the_new_source_commit(
     assert repo.head.shorthand == "variant/Minimal"
     # the refreshed view equals the edited view: nothing gained, nothing lost
     assert (fixture.builder.path / "app.py").read_text() == edited
+    # ...and both the index and the worktree are clean (no phantom modifications)
+    assert repo.status(untracked_files="no") == {}
     session = GitRefStore(repo).read_view("Minimal")
     assert session is not None
     assert session.base_commit == read_ref(repo, f"refs/heads/{fixture.source_branch}")
