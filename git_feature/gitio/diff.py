@@ -52,6 +52,20 @@ def worktree_diff(repo: pygit2.Repository, context_lines: int = 0) -> list[FileD
     return _convert_diff(diff)
 
 
+def diff_to_workdir(
+    repo: pygit2.Repository, rev: str | pygit2.Commit, context_lines: int = 0
+) -> list[FileDiff]:
+    """Diff a commit's tree against the working directory, untracked files included."""
+    commit = resolve_commit(repo, rev)
+    flags = (
+        pygit2.enums.DiffOption.INCLUDE_UNTRACKED
+        | pygit2.enums.DiffOption.SHOW_UNTRACKED_CONTENT
+        | pygit2.enums.DiffOption.RECURSE_UNTRACKED_DIRS
+    )
+    diff = repo.diff(str(commit.id), flags=flags, context_lines=context_lines)
+    return _convert_diff(diff)
+
+
 def _convert_diff(diff: pygit2.Diff) -> list[FileDiff]:
     files = []
     for patch in diff:

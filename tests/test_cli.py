@@ -25,8 +25,6 @@ EXPECTED_COMMANDS = [
 ]
 
 STUB_INVOCATIONS = [
-    ["view", "minimal"],
-    ["putback"],
     ["sync", "develop"],
 ]
 

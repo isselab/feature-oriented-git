@@ -81,3 +81,22 @@ class DerivationManifest(BaseModel):
     assignment: dict[str, bool]
     decisions: list[RegionDecision] = Field(default_factory=list)
     created_at: datetime
+
+    def removed_runs(self, path: str) -> list[tuple[int, int]]:
+        """Line runs removed from a file, sorted by position (source coordinates)."""
+        runs: list[tuple[int, int]] = []
+        for decision in self.decisions:
+            if not decision.included and decision.anchor.path == path:
+                runs.extend(decision.runs())
+        return sorted(runs)
+
+
+class ViewSession(BaseModel):
+    """An editable variant checkout and the derivation it was built from."""
+
+    instance: str
+    source_branch: str
+    base_commit: str
+    variant_commit: str
+    manifest: DerivationManifest
+    created_at: datetime

@@ -3,7 +3,7 @@
 import pygit2
 import typer
 
-from ..gitio import RepositoryNotFound, open_repository
+from ..gitio import RepositoryNotFound, checkout_branch, open_repository
 from ..store import GitRefStore
 
 
@@ -28,3 +28,12 @@ def require_store(repo: pygit2.Repository) -> GitRefStore:
 def json_mode(ctx: typer.Context) -> bool:
     """Whether the global --json flag was given."""
     return bool(ctx.obj and ctx.obj.get("json"))
+
+
+def switch_branch(repo: pygit2.Repository, refname: str, force: bool = False) -> None:
+    """Switch to a branch, downgrading checkout failures to a warning."""
+    try:
+        checkout_branch(repo, refname, force=force)
+        typer.echo(f"switched to {refname.removeprefix('refs/heads/')}")
+    except pygit2.GitError as exc:
+        typer.echo(f"warning: could not switch ({exc}); branch is ready anyway", err=True)

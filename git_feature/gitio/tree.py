@@ -25,7 +25,7 @@ def rewrite_tree(
 
 
 def _rewrite(
-    repo: pygit2.Repository, tree: pygit2.Tree, replacements: dict[str, bytes]
+    repo: pygit2.Repository, tree: pygit2.Tree | None, replacements: dict[str, bytes]
 ) -> pygit2.Oid:
     nested: dict[str, dict[str, bytes]] = {}
     direct: dict[str, bytes] = {}
@@ -36,14 +36,16 @@ def _rewrite(
         else:
             direct[head] = data
 
-    builder = repo.TreeBuilder(tree)
+    builder = repo.TreeBuilder(tree) if tree is not None else repo.TreeBuilder()
     for name, data in direct.items():
         builder.insert(name, repo.create_blob(data), pygit2.enums.FileMode.BLOB)
     for name, sub in nested.items():
-        entry = tree[name]
-        subtree = repo[entry.id]
-        if not isinstance(subtree, pygit2.Tree):
-            raise KeyError(f"'{name}' is not a directory")
+        subtree = None
+        if tree is not None and name in tree:
+            obj = repo[tree[name].id]
+            if not isinstance(obj, pygit2.Tree):
+                raise KeyError(f"'{name}' is not a directory")
+            subtree = obj
         builder.insert(name, _rewrite(repo, subtree, sub), pygit2.enums.FileMode.TREE)
     return builder.write()
 
@@ -60,6 +62,12 @@ def create_commit(
     return str(oid)
 
 
-def checkout_branch(repo: pygit2.Repository, refname: str) -> None:
-    """Switch the working tree and HEAD to a branch (safe strategy: no overwrites)."""
-    repo.checkout(refname)
+def checkout_branch(repo: pygit2.Repository, refname: str, force: bool = False) -> None:
+    """Switch the working tree and HEAD to a branch (safe strategy unless forced)."""
+    if force:
+        strategy = (
+            pygit2.enums.CheckoutStrategy.FORCE | pygit2.enums.CheckoutStrategy.RECREATE_MISSING
+        )
+        repo.checkout(refname, strategy=strategy)
+    else:
+        repo.checkout(refname)

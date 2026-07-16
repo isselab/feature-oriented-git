@@ -13,6 +13,7 @@ from .types import (
     RegionAnchor,
     RegionDecision,
     StoreMeta,
+    ViewSession,
 )
 
 __all__ = [
@@ -29,4 +30,5 @@ __all__ = [
     "RegionDecision",
     "Store",
     "StoreMeta",
+    "ViewSession",
 ]

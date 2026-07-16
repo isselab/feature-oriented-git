@@ -211,14 +211,22 @@ def view(
     ctx: typer.Context,
     instance: Annotated[str, typer.Argument(help="Variant instance from model.cfr.")],
 ) -> None:
-    """Check out a variant as an editable view."""
+    """Check out a variant as an editable view (edits go back with putback)."""
     view_cmd.run(ctx, instance=instance)
 
 
 @app.command()
-def putback(ctx: typer.Context) -> None:
+def putback(
+    ctx: typer.Context,
+    message: Annotated[
+        str | None, typer.Option("--message", "-m", help="Commit message for the source commit.")
+    ] = None,
+    dry_run: Annotated[
+        bool, typer.Option("--dry-run", help="Report the mapped edits without committing.")
+    ] = False,
+) -> None:
     """Transplant edits from a variant view back to the source branch."""
-    putback_cmd.run(ctx)
+    putback_cmd.run(ctx, dry_run=dry_run, message=message)
 
 
 @app.command()
