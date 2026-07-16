@@ -84,9 +84,11 @@ def cherrypick_tree(
 def checkout_branch(repo: pygit2.Repository, refname: str, force: bool = False) -> None:
     """Switch the working tree and HEAD to a branch (safe strategy unless forced)."""
     if force:
-        strategy = (
-            pygit2.enums.CheckoutStrategy.FORCE | pygit2.enums.CheckoutStrategy.RECREATE_MISSING
-        )
-        repo.checkout(refname, strategy=strategy)
+        # A forced checkout diffs against HEAD, so it no-ops (leaving the index
+        # and workdir stale) when the ref was already moved under HEAD; a hard
+        # reset rewrites both unconditionally.
+        target = repo.references[refname].target
+        repo.set_head(refname)
+        repo.reset(target, pygit2.enums.ResetMode.HARD)
     else:
         repo.checkout(refname)
