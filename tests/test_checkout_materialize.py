@@ -206,3 +206,24 @@ def test_annotated_file_renamed_after_annotation_still_derives(
     moved = [d for d in manifest.decisions if d.resolved_path]
     assert moved and all(d.resolved_path == "core.py" for d in moved)
     assert all(d.location() == "core.py" for d in moved)
+
+
+def test_rename_target_preferred_over_decoy_with_identical_window(
+    runner: CliRunner, fixture: VariantRepo
+) -> None:
+    # an alphabetically-earlier file containing an identical copy of the
+    # region's lines must not steal the resolution from the renamed file
+    decoy = "\n\ndef ui():\n    return render()\n"  # the ui region, verbatim
+    fixture.builder.commit(
+        "rename shared to zz and add lookalike",
+        files={"zz.py": WITH_BOTH, "aa.py": decoy},
+        remove=["shared.py"],
+    )
+    result = runner.invoke(app, ["checkout", "AuthOnly", "--no-switch"])
+    assert result.exit_code == 0, result.output
+    manifest = GitRefStore(fixture.builder.repo).read_manifest("AuthOnly")
+    assert manifest is not None
+    moved = [d for d in manifest.decisions if d.resolved_path]
+    assert moved and all(d.resolved_path == "zz.py" for d in moved)
+    assert _variant_blob(fixture.builder, "AuthOnly", "zz.py") == WITH_AUTH.encode()
+    assert _variant_blob(fixture.builder, "AuthOnly", "aa.py") == decoy.encode()
