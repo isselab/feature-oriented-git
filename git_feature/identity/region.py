@@ -67,6 +67,7 @@ class RegionResolver:
         self._map = cid_map
         self._cache: dict[tuple[str, str, tuple[int, int], str, str], Resolution] = {}
         self._origins_cache: dict[tuple[str, str], list[str] | None] = {}
+        self._rename_cache: dict[tuple[str, str], dict[str, str]] = {}
 
     def resolve(self, anchor: RegionAnchor, target: str | pygit2.Commit) -> Resolution:
         commit = resolve_commit(self._repo, target)
@@ -111,13 +112,36 @@ class RegionResolver:
             self._origins_cache[key] = line_origins(self._repo, commit, path)
         return self._origins_cache[key]
 
+    def _renamed_target(self, anchor: RegionAnchor, commit: pygit2.Commit) -> str | None:
+        """Where the anchored file went if it was renamed before the target commit."""
+        if blob_lines(self._repo, commit, anchor.path) is not None:
+            return None  # still there; nothing to follow
+        for sha in self._map.shas_for(anchor.change_id):
+            if sha not in self._repo:
+                continue
+            key = (sha, str(commit.id))
+            if key not in self._rename_cache:
+                diff = self._repo.diff(sha, str(commit.id))
+                diff.find_similar()
+                self._rename_cache[key] = {
+                    delta.old_file.path: delta.new_file.path
+                    for delta in diff.deltas
+                    if delta.status == pygit2.enums.DeltaStatus.RENAMED
+                }
+            target = self._rename_cache[key].get(anchor.path)
+            if target is not None:
+                return target
+        return None
+
     def _fingerprint_search(self, anchor: RegionAnchor, commit: pygit2.Commit) -> Resolution | None:
         length = anchor.new_span[1]
         if length == 0:
             return None
-        paths = [anchor.path] + sorted(
-            p for p in tree_paths(self._repo, commit) if p != anchor.path
-        )
+        preferred = [anchor.path]
+        renamed = self._renamed_target(anchor, commit)
+        if renamed is not None:
+            preferred.append(renamed)
+        paths = preferred + sorted(p for p in tree_paths(self._repo, commit) if p not in preferred)
         for path in paths:
             lines = blob_lines(self._repo, commit, path)
             if lines is None or len(lines) < length:
