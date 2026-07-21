@@ -145,7 +145,7 @@ def _report(ctx: typer.Context, projection: Projection, *, dry_run: bool) -> Non
 
     removals = defaultdict(list)
     for decision in projection.removed:
-        removals[decision.anchor.path].append(decision)
+        removals[decision.location()].append(decision)
     if removals:
         typer.echo("would remove:")
         for path in sorted(removals):
@@ -156,7 +156,10 @@ def _report(ctx: typer.Context, projection: Projection, *, dry_run: bool) -> Non
                     if runs
                     else "unlocated"
                 )
-                typer.echo(f"  {path}: {lines}  [{decision.presence}] ({decision.confidence})")
+                origin = f", anchored at {decision.anchor.path}" if decision.resolved_path else ""
+                typer.echo(
+                    f"  {path}: {lines}  [{decision.presence}] ({decision.confidence}{origin})"
+                )
     else:
         typer.echo("would remove: nothing")
     kept = len(projection.decisions) - len(projection.removed)
