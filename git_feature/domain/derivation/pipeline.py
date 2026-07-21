@@ -107,6 +107,7 @@ def project(
                 included=included,
                 resolved_span=resolution.span,
                 resolved_runs=list(resolution.runs) if resolution.runs else None,
+                resolved_path=resolution.path,
                 confidence=resolution.confidence,
             )
         )
@@ -143,7 +144,7 @@ def _consistency_conflicts(decisions: list[RegionDecision]) -> list[Conflict]:
     conflicts = []
     located = [d for d in decisions if d.resolved_span is not None]
     for a, b in combinations(located, 2):
-        if a.anchor.path != b.anchor.path or a.included == b.included:
+        if a.location() != b.location() or a.included == b.included:
             continue
         enabled, disabled = (a, b) if a.included else (b, a)
         clash = [
@@ -160,9 +161,9 @@ def _consistency_conflicts(decisions: list[RegionDecision]) -> list[Conflict]:
                 Conflict(
                     "dangling-dependency",
                     f"enabled region {enabled.presence!r} sits inside removed region"
-                    f" {disabled.presence!r} in {enabled.anchor.path}"
+                    f" {disabled.presence!r} in {enabled.location()}"
                     f" (lines {_span_text(kept_run)})",
-                    enabled.anchor.path,
+                    enabled.location(),
                 )
             )
         else:
@@ -170,9 +171,9 @@ def _consistency_conflicts(decisions: list[RegionDecision]) -> list[Conflict]:
                 Conflict(
                     "overlap",
                     f"regions {enabled.presence!r} (kept) and {disabled.presence!r} (removed)"
-                    f" overlap in {enabled.anchor.path}"
+                    f" overlap in {enabled.location()}"
                     f" (lines {_span_text(removed_run)})",
-                    enabled.anchor.path,
+                    enabled.location(),
                 )
             )
     return conflicts

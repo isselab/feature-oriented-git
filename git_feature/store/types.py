@@ -64,6 +64,7 @@ class RegionDecision(BaseModel):
     included: bool
     resolved_span: tuple[int, int] | None = None  # overall extent (first..last line)
     resolved_runs: list[tuple[int, int]] | None = None  # exact surviving line runs
+    resolved_path: str | None = None  # set when the region resolved in a renamed/moved file
     confidence: Confidence | None = None
 
     def runs(self) -> list[tuple[int, int]]:
@@ -71,6 +72,10 @@ class RegionDecision(BaseModel):
         if self.resolved_runs:
             return self.resolved_runs
         return [self.resolved_span] if self.resolved_span else []
+
+    def location(self) -> str:
+        """The file the region occupies at the base commit."""
+        return self.resolved_path or self.anchor.path
 
 
 class DerivationManifest(BaseModel):

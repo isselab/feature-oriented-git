@@ -182,3 +182,27 @@ def test_scattered_kept_region_does_not_false_overlap(
     result = runner.invoke(app, ["checkout", "Minimal", "--no-switch"])
     assert result.exit_code == 0, result.output
     assert _variant_blob(fixture.builder, "Minimal", "core2.py") == original.encode()
+
+
+def test_annotated_file_renamed_after_annotation_still_derives(
+    runner: CliRunner, fixture: VariantRepo
+) -> None:
+    # the annotated file is renamed later; regions must resolve in the renamed
+    # file (not crash on the stale anchored path) and splice from it
+    fixture.builder.commit(
+        "rename shared to core", files={"core.py": WITH_BOTH}, remove=["shared.py"]
+    )
+    result = runner.invoke(app, ["checkout", "AuthOnly", "--no-switch", "--dry-run"])
+    assert result.exit_code == 0, result.output
+    assert "core.py" in result.output
+    assert "anchored at shared.py" in result.output
+
+    result = runner.invoke(app, ["checkout", "AuthOnly", "--no-switch"])
+    assert result.exit_code == 0, result.output
+    assert _variant_blob(fixture.builder, "AuthOnly", "core.py") == WITH_AUTH.encode()
+
+    manifest = GitRefStore(fixture.builder.repo).read_manifest("AuthOnly")
+    assert manifest is not None
+    moved = [d for d in manifest.decisions if d.resolved_path]
+    assert moved and all(d.resolved_path == "core.py" for d in moved)
+    assert all(d.location() == "core.py" for d in moved)

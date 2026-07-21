@@ -13,7 +13,7 @@ def removal_plan(projection: Projection) -> dict[str, list[tuple[int, int]]]:
     """Line runs to delete per file, from the projection's removed decisions."""
     plan: dict[str, list[tuple[int, int]]] = {}
     for decision in projection.removed:
-        plan.setdefault(decision.anchor.path, []).extend(decision.runs())
+        plan.setdefault(decision.location(), []).extend(decision.runs())
     return plan
 
 
@@ -59,16 +59,16 @@ def verify_tree(
         # Regions evolve: later commits may have rewritten these lines. Only what
         # was literally present at the base can be demanded from (or denied to)
         # the derived tree.
-        if not _content_present(repo, base_sha, decision.anchor.path, content):
+        if not _content_present(repo, base_sha, decision.location(), content):
             continue
-        present = _content_present(repo, tree_rev, decision.anchor.path, content)
+        present = _content_present(repo, tree_rev, decision.location(), content)
         if decision.included and not present:
             conflicts.append(
                 Conflict(
                     "verify",
                     f"kept region {decision.presence!r} is missing from the derived"
-                    f" {decision.anchor.path}",
-                    decision.anchor.path,
+                    f" {decision.location()}",
+                    decision.location(),
                 )
             )
         if not decision.included and present:
@@ -76,8 +76,8 @@ def verify_tree(
                 Conflict(
                     "verify",
                     f"removed region {decision.presence!r} still present in the derived"
-                    f" {decision.anchor.path}",
-                    decision.anchor.path,
+                    f" {decision.location()}",
+                    decision.location(),
                 )
             )
     return conflicts
@@ -89,7 +89,7 @@ def _region_content(
     """The region's salient lines: whitespace-normalized, blanks dropped."""
     lines = original_added_lines(repo, cid_map, decision.anchor)
     if lines is None and decision.resolved_span is not None:
-        raw = blob_data(repo, base_sha, decision.anchor.path)
+        raw = blob_data(repo, base_sha, decision.location())
         if raw is not None:
             start, count = decision.resolved_span
             lines = tuple(raw.decode("utf-8").splitlines()[start - 1 : start - 1 + count])
