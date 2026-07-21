@@ -43,12 +43,15 @@ class Resolution:
     """Where a region lives at a target commit, and how sure we are.
 
     `span` is the overall extent; `runs` are the exact surviving line runs
-    (a region scattered by interleaved edits has several).
+    (a region scattered by interleaved edits has several). `path` is set only
+    when the region resolved in a different file than it was anchored to
+    (the anchored file was renamed or the content moved).
     """
 
     span: tuple[int, int] | None
     confidence: Confidence
     runs: tuple[tuple[int, int], ...] | None = None
+    path: str | None = None
 
     def line_runs(self) -> tuple[tuple[int, int], ...]:
         if self.runs:
@@ -122,7 +125,11 @@ class RegionResolver:
             for start in range(1, len(lines) - length + 2):
                 window = lines[start - 1 : start - 1 + length]
                 if normalized_fingerprint(window) == anchor.fingerprint:
-                    return Resolution((start, length), "fuzzy")
+                    return Resolution(
+                        (start, length),
+                        "fuzzy",
+                        path=path if path != anchor.path else None,
+                    )
         return self._similarity_search(anchor, commit, paths)
 
     def _similarity_search(
@@ -133,7 +140,7 @@ class RegionResolver:
             return None
         target_text = "\n".join("".join(line.split()) for line in original)
         length = anchor.new_span[1]
-        best: tuple[float, tuple[int, int]] | None = None
+        best: tuple[float, tuple[int, int], str] | None = None
         for path in paths:
             lines = blob_lines(self._repo, commit, path)
             if lines is None or len(lines) < length:
@@ -143,9 +150,9 @@ class RegionResolver:
                 window_text = "\n".join("".join(line.split()) for line in window)
                 score = SequenceMatcher(None, target_text, window_text).ratio()
                 if best is None or score > best[0]:
-                    best = (score, (start, length))
+                    best = (score, (start, length), path)
         if best is not None and best[0] >= FUZZY_THRESHOLD:
-            return Resolution(best[1], "fuzzy")
+            return Resolution(best[1], "fuzzy", path=best[2] if best[2] != anchor.path else None)
         return None
 
     def _original_lines(self, anchor: RegionAnchor) -> tuple[str, ...] | None:
