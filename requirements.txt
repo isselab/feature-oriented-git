@@ -1,5 +1,0 @@
-typer
-pydantic[email]
-GitPython
-python-dotenv
-prompt_toolkit
