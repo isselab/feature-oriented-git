@@ -1,10 +1,21 @@
 [project]
 name = "git-feature"
-version = "0.1.0"
+version = "2.0.0"
 description = "Feature-oriented version control on top of git: annotate code with features, query feature history, derive product variants."
 readme = "README.md"
 license = { file = "LICENSE" }
+authors = [
+  { name = "Tabea Röthemeyer", email = "tabea.roethemeyer@rub.de" },
+  { name = "Kim Nguyen", email = "ho.nguyen@rub.de" },
+  { name = "Aashutosh Aryal", email = "aashutosh.aryal@edu.ruhr-uni-bochum.de" },
+]
 requires-python = ">=3.12"
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Development Status :: 3 - Alpha",
+]
 dependencies = [
     "pygit2>=1.15",
     "typer>=0.15",
