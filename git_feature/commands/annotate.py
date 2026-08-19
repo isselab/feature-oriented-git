@@ -10,6 +10,7 @@ from ..domain.annotate.capture import (
     ensure_features,
     signature_name,
 )
+from ..domain.variability.presence import PresenceError, parse_presence
 from ..gitio import iter_range
 from .common import json_mode, require_repo, require_store
 
@@ -33,9 +34,16 @@ def run(
         typer.echo("error: pass --feature or --presence", err=True)
         raise typer.Exit(2)
 
+    presences = [presence] if presence else list(features)
+    for text in presences:
+        try:
+            _ = parse_presence(text)
+        except PresenceError as exc:
+            typer.echo(f"error: invalid presence condition: {exc}", err=True)
+            raise typer.Exit(2) from exc
+
     repo = require_repo()
     store = require_store(repo)
-    presences = [presence] if presence else list(features)
     result = CaptureResult()
     ensure_features(store, list(features), result)
     author = signature_name(repo)
