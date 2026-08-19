@@ -1,0 +1,782 @@
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=1in]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{titlesec}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{booktabs}
+\usepackage{parskip}
+\usepackage{fancyhdr}
+\usepackage[colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black,citecolor=blue!50!black]{hyperref}
+
+\definecolor{rulegray}{gray}{0.55}
+
+\titleformat{\section}{\large\bfseries}{\thesection}{0.6em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{0.6em}{}
+\titlespacing*{\section}{0pt}{1.4em}{0.6em}
+\titlespacing*{\subsection}{0pt}{1.1em}{0.4em}
+
+\pagestyle{fancy}
+\setlength{\headheight}{14pt}
+\fancyhf{}
+\fancyhead[R]{\itshape Aashutosh Aryal}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\fancypagestyle{plain}{\fancyhf{}\fancyhead[R]{\itshape Aashutosh Aryal}\fancyfoot[C]{\thepage}\renewcommand{\headrulewidth}{0.4pt}}
+
+\newcommand{\decision}[1]{\medskip\noindent\textbf{Decision: #1}\par\nopagebreak\smallskip}
+\newcommand{\rationale}{\noindent\textbf{Rationale.}\ }
+\newcommand{\tradeoff}{\noindent\textbf{Trade-off.}\ }
+
+\begin{document}
+
+% ---------------------------------------------------------------------
+% Title page
+% ---------------------------------------------------------------------
+\begin{titlepage}
+\centering
+\vspace*{1.2cm}
+{\sffamily\small\scshape\color{rulegray} Project Technical Report}\\[2.2cm]
+
+{\Huge\bfseries git-feature}\\[0.6cm]
+{\Large Storage, Modeling, and Derivation:\\[0.2cm] Design Decisions of a Feature-Oriented Git Extension}\\[2.2cm]
+
+{\large Aashutosh Aryal}\\[0.4cm]
+
+\vfill
+
+{\large Version 1, August 2026}\\[0.3cm]
+{\small\color{rulegray} feature-oriented-git}
+
+\vspace*{1.5cm}
+\end{titlepage}
+
+% ---------------------------------------------------------------------
+\section{Overview and Scope}
+
+This report documents the technical decisions behind \emph{git-feature}, a
+tool that lets code be labeled with the product features it implements,
+keeps those labels attached correctly as history is rewritten, and can
+derive a working build containing only a chosen combination of features.
+The tool is a rewrite of \emph{Git with Features} (\emph{GWF}), an earlier
+prototype that first explored recording \emph{feature associations} directly in Git.
+
+
+The report is organized around the three parts of the system: the
+\textbf{storage model} (Section~\ref{sec:storage}), which records which code
+belongs to which feature and keeps that record accurate over time; the
+\textbf{feature model} (Section~\ref{sec:modeling}), which describes what
+features exist and which combinations of them are valid products; and
+\textbf{variant derivation} (Section~\ref{sec:derivation}), which turns a
+chosen combination into an actual, working codebase. Each section states a
+decision, the reasoning behind it, and, where relevant, the trade-off it
+accepts.
+
+% ---------------------------------------------------------------------
+\section{Rewriting Git with Features}
+\label{sec:rewrite}
+
+GWF established the core idea this project keeps: feature associations
+should be recorded as an addition alongside a project's real history, not
+by editing that history directly. Rewriting a commit to embed feature
+metadata inside it would make ordinary history operations (reordering,
+splitting, combining commits) destroy the very thing traceability is
+supposed to survive. GWF calls this a \emph{non-invasive augmentation
+strategy}: metadata is linked to commits through auxiliary structures,
+without altering the commits themselves. Keeping that strategy was the
+right starting point, and this project preserves it.
+
+What motivated a rewrite rather than an extension of the original codebase
+was a specific, structural problem in how GWF addressed that metadata. GWF
+filed each feature association under the commit's content hash: a value
+computed automatically from a commit's exact contents. That value is not a
+stable name for a commit so much as a fingerprint of its current state,
+and it changes the moment the commit is edited, reordered, or copied onto
+another branch. An association filed under a hash that has since changed
+does not raise an error; it simply stops matching anything, and the
+association is silently lost. This is not a corner case: rebasing,
+amending a commit message, and cherry-picking are all routine developer
+actions, and all three break hash-keyed metadata.
+
+Three further gaps shaped the scope of the rewrite:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item GWF recorded, at most, a flat feature name attached to an entire
+    commit. Its own evaluation names this directly: the prototype
+    associates features at \emph{commit granularity}, and identifies
+    finer-grained association as future work. A commit that touches two
+    unrelated features had no way to express that split; the whole commit
+    inherited a single label.
+  \item There was no explicit model of what features exist, how they
+    relate to each other, or which combinations form a legal product. A
+    ``feature'' was just a string.
+  \item There was no way to go from recorded associations to an actual
+    build. GWF was a read-only traceability aid, not a build tool; its own
+    discussion of related work draws exactly this line against tools that
+    do support derivation, noting they operate largely outside version
+    control instead.
+  \end{itemize}
+
+The rewrite keeps GWF's non-invasive augmentation strategy, replaces the
+addressing scheme that broke under routine history rewrites, resolves the
+commit-granularity limitation named above (Section~\ref{sec:regions}), and
+adds the two capabilities (an explicit feature model, and derivation from
+it) that did not exist before. These are documented in the sections that
+follow.
+
+% ---------------------------------------------------------------------
+\section{The Storage Model}
+\label{sec:storage}
+
+\subsection{What Was Stored, Concretely}
+\label{sec:storage-example}
+
+Before going through each decision in turn, it helps to see one real
+record from each system side by side, rather than only describing the
+difference in the abstract. Both examples below come from running the
+respective tool against the same small, two-commit project.
+
+\medskip\noindent\textbf{GWF.} Tagging one commit with the feature
+\texttt{auth} wrote a single file onto GWF's \emph{metadata branch}, an
+ordinary Git branch named \texttt{feature-metadata}, at the path
+\nolinkurl{auth/<commit-hash>/<timestamp>-<short-hash>}. Its content, a
+small structured text format called JSON, was:
+
+\begin{verbatim}
+{
+    "commit": "43932d3da78b667736f1af2d6a027dfed108b029",
+    "authors": ["Dev"],
+    "date": "2026-08-05T13:31:45.743465",
+    "features": ["auth"],
+    "changes": {
+        "code_changes": [],
+        "name_change": null,
+        "constraint_changes": []
+    }
+}
+\end{verbatim}
+
+Two things about this record explain the problems described in
+Section~\ref{sec:rewrite}. First, its location in the store, the folder
+path itself, is built from the commit's content hash,
+\texttt{43932d3d\ldots}: if that commit is later rebased, amended, or
+cherry-picked, its hash changes, the folder this record lives in no
+longer corresponds to anything, and the record is simply never found
+again. Second, the record names exactly one feature for the whole commit; there
+is no field that could describe ``these specific lines, not the rest of
+the commit,'' the commit-granularity limitation GWF's own evaluation
+names as future work.
+
+\medskip\noindent\textbf{This project.} Tagging the equivalent commit with
+the feature \texttt{core} writes two separate records to a ref outside the
+branch namespace (Section~\ref{sec:branch-namespace}). The first maps the
+commit's hash to a permanent identifier:
+
+\begin{verbatim}
+{
+  "217f6ca05f87aaabaa03b944e2089bb92f5a2035": {
+    "sha": "217f6ca05f87aaabaa03b944e2089bb92f5a2035",
+    "change_id": "01KYPVNRPKW5BNQPEERY2PP86V",
+    "patch_id": "7289c31690c6a128d4f54cfe274e56806f93214e"
+  }
+}
+\end{verbatim}
+
+The second is the annotation itself, filed under that identifier rather
+than under the hash:
+
+\begin{verbatim}
+[
+  {
+    "anchor": {
+      "change_id": "01KYPVPA4NRNNSEJA951YEEHM0",
+      "path": "app.py",
+      "old_span": [0, 0],
+      "new_span": [1, 2],
+      "fingerprint": "7fa8eae0365e947e"
+    },
+    "presence": "core",
+    "author": "Dev",
+    "ts": "2026-07-29T11:55:51.829972Z",
+    "note": null
+  }
+]
+\end{verbatim}
+
+The difference is visible directly in the records. The annotation is
+filed under \texttt{change\_id}, a value this tool assigns and controls,
+not under the commit's hash; the small mapping file above is the only
+place that ever needs to change if the commit is later rewritten, and the
+automation in Section~\ref{sec:identity} updates exactly that file, and
+nothing else, when it happens. The annotation also carries
+\texttt{old\_span}/\texttt{new\_span}, which lines of that specific
+historical change this label applies to, and \texttt{fingerprint}, a
+content check used during resolution (Section~\ref{sec:resolution}), so
+it describes one region of the commit rather than the commit as a whole.
+\texttt{presence} holds a full condition (Section~\ref{sec:presence}), not
+only a single feature name.
+
+\subsection{A Metadata Store Outside the Branch Namespace}
+\label{sec:branch-namespace}
+
+\decision{Feature metadata lives in its own commit history, kept outside
+Git's ordinary branch namespace, rather than on GWF's metadata branch.}
+
+\rationale Git only treats a handful of naming conventions specially
+(branches, tags, and a few others); nothing prevents a tool from writing
+its own ordinary commit history under a name outside those conventions.
+Doing so gets every property a branch would give (a durable, append-only,
+content-addressed history, inspectable with the same tooling) without the
+side effect of that history appearing in an everyday list of branches or
+being checked out by mistake. GWF's metadata branch is a real, visible
+branch for exactly this purpose; keeping the same non-invasive structure
+while moving it out of the conventional namespace was a small change with
+a direct benefit: nothing about the metadata store competes for the
+developer's attention or can be confused with a branch of real work.
+
+\tradeoff The store no longer benefits automatically from the tooling
+that exists specifically for branches, most importantly the default rules
+for what a plain push or fetch transfers. This is addressed directly in
+Section~\ref{sec:sharing}.
+
+\subsection{Stable Identity Under Rebase, Amend, and Cherry-Pick}
+\label{sec:identity}
+
+\decision{A commit's feature record is filed under a permanent,
+tool-assigned identifier minted the first time the commit is seen, not
+under the commit's content hash. Two small pieces of automation, run by
+Git itself immediately after a commit is made and immediately after
+history is rewritten, keep that identifier attached to the commit's
+current form.}
+
+\rationale This is the direct fix for the problem described in
+Section~\ref{sec:rewrite}. Separating ``the identity a record is filed
+under'' from ``the value Git derives from a commit's current content''
+means the record can survive exactly the operations that discard the
+latter. The identifier is minted lazily and cheaply: an unlabeled commit
+gets one the first time it is either touched by the automation described
+above, or explicitly annotated. Because Git already exposes hook points
+that fire automatically after these specific actions, migrating the
+identifier forward requires no discipline from the developer; it happens
+as a side effect of the same commands they were already running.
+
+A commit made somewhere this automation was not active, most commonly a
+collaborator's clone before the tool was adopted there, or history that
+predates adoption entirely, will not have an identifier yet. A
+reconciliation step recovers one after the fact, first by comparing a
+commit's exact set of changes against every already-known identifier's
+changes (a reliable, unambiguous match when the change is unmodified),
+and falling back to a text-similarity comparison when no exact match
+exists. Genuinely ambiguous cases, several equally plausible matches, are
+reported rather than resolved by guessing, and are left for a person to
+confirm.
+
+\tradeoff This identifier only has meaning within this project's
+metadata store; it is not something Git itself, or any other tool, is
+aware of. The reconciliation fallback is heuristic, not exact, for commits
+the automation never saw.
+
+\subsection{Regions in Place of Whole-Commit Associations}
+\label{sec:regions}
+
+\decision{A feature association is attached to the specific lines a
+change introduced (a \emph{region}), not to the commit that introduced
+them.}
+
+\rationale Commits are a unit of convenience for the developer, not a
+unit of feature scope. A single commit routinely touches more than one
+concern: a bug fix bundled with an unrelated small refactor, or a change
+that happens to serve two features at once. Attaching an association to
+the whole commit forces every line in it to share one classification,
+which is often simply false. Attaching it to the specific lines a change
+introduced lets two unrelated edits landing in the same commit be
+correctly and independently associated. GWF's finest granularity was the
+commit; its own evaluation names this directly as a limitation and points
+to finer-grained association as future work. A region is this project's
+answer to that: the same concept of a feature association, GWF's term,
+narrowed from a whole commit down to the lines that actually implement it.
+
+A region is recorded relative to the historical diff that introduced it:
+which file, which lines within that one diff, and a content fingerprint of
+those lines. None of this needs to be updated later, because it describes
+a historical fact and history does not change. What does change is
+\emph{where that region lives now}, which is answered separately (see
+Section~\ref{sec:resolution}).
+
+\subsection{Presence Conditions}
+\label{sec:presence}
+
+\decision{A region's label is a boolean expression over feature names (a
+\emph{presence condition}), for example \texttt{auth}, or
+\texttt{payments \& premium \& !trial}, rather than a single feature
+name.}
+
+\rationale Code frequently only makes sense under a combination of
+features, not one feature considered alone. Restricting every region to
+exactly one feature name would force an artificial choice whenever a
+region's real condition is a conjunction, a disjunction, or a negation of
+several features. A presence condition is deliberately kept to a small
+grammar, feature names, negation, conjunction, disjunction, and
+parentheses, since expressing on/off combinations is the only thing this
+expression needs to do; it does not need the structural vocabulary
+(cardinalities, groups, required/excluded relationships) that the feature
+model itself expresses (Section~\ref{sec:modeling}). Keeping the two
+grammars separate, and the presence-condition grammar deliberately small,
+keeps evaluating a region's fate under a chosen configuration a cheap,
+unambiguous lookup.
+
+\subsection{Resolving a Region at a Later Commit}
+\label{sec:resolution}
+
+\decision{Locating a region's current line range is computed on demand,
+at the point it is needed, in a fixed sequence of increasingly
+approximate strategies, each carrying an explicit confidence label rather
+than a silent best guess.}
+
+\rationale Line numbers are not a stable coordinate: every subsequent
+edit to a file can shift, split, or reshape a previously recorded region.
+Storing a line number once and trusting it forever would silently go
+wrong the first time surrounding code changed. Instead, the current
+location is derived fresh each time it is asked for, using the cheapest,
+most reliable method first and falling back only when it fails:
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Exact.} Trace each line of the target file back to the
+    change that produced it; if the region's lines are still found
+    together, in their originally recorded shape, the match is exact.
+  \item \textbf{Moved.} The same trace finds the region's lines, but an
+    unrelated edit has landed inside the region and split it into more
+    than one contiguous piece. Every piece is still accounted for, just
+    not as a single block.
+  \item \textbf{Fuzzy.} If line-history tracing finds nothing, for
+    instance after a heavy rewrite or reformat, fall back to searching
+    file content directly for the region's recorded fingerprint, and
+    failing that, for the closest text match above a fixed similarity
+    threshold.
+  \item \textbf{Lost.} None of the above succeeds. This is reported as
+    what it is, not silently treated as ``nowhere'' or attached to
+    whatever code happens to be nearby.
+\end{enumerate}
+
+\tradeoff Confidence can degrade over time as code is reshaped. This is
+an honest limitation of any content-based tracking approach, not a defect
+specific to this design; the alternative, silently trusting a stale
+location, is strictly worse.
+
+\subsection{A Worked Example}
+\label{sec:resolution-example}
+
+The four cases above are easiest to see concretely, one step at a time,
+against a single small function tagged with the feature \texttt{bonus}:
+
+\begin{verbatim}
+def calc_bonus(rate):
+    return rate * 100
+\end{verbatim}
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Right after tagging.} Nothing has changed yet. Asking
+    where this region is now finds it immediately, unchanged, at its
+    original position: \texttt{exact}.
+  \item \textbf{A later, unrelated commit reformats the function,
+    changing only whitespace:}
+\begin{verbatim}
+def   calc_bonus(rate) :
+        return rate * 100
+\end{verbatim}
+    Tracing these lines back, the first and most reliable step, now points to the reformatting
+    commit, not the one that introduced the feature, because every line
+    in the region was rewritten, even though only its spacing changed.
+    The trace comes back empty. But the region's content, with whitespace
+    ignored, is exactly what was recorded when it was tagged, so a direct
+    content search finds it again at the same position. This is reported
+    as \texttt{fuzzy}, because it did not come from the reliable trace,
+    even though the match itself is exact.
+  \item \textbf{A later commit renames the parameter throughout the
+    function:}
+\begin{verbatim}
+def calc_bonus(pct_rate):
+    return pct_rate * 100
+\end{verbatim}
+    This defeats the content search too: with whitespace ignored, the
+    text is genuinely different now, not just re-spaced. Comparing the
+    originally recorded text to the candidate text at this position,
+    however, still finds it about 90\% identical, comfortably over the
+    fixed acceptance threshold (75\%), so this closest match is accepted.
+    This is also reported as \texttt{fuzzy}; the label does not
+    distinguish an exact content match from a close-enough one, only that
+    neither came from the trace.
+  \item \textbf{A later commit deletes the function and writes something
+    unrelated in its place.} Nothing left in the file is even 75\%
+    similar to the originally recorded text. Resolution reports
+    \texttt{lost}, and, because this region needed to be removed under
+    the configuration being built, derivation refuses outright rather
+    than guess:
+\begin{verbatim}
+!! lost-region: region of 'bonus' in app.py must be removed
+   but cannot be located at the base commit
+1 conflict(s) -- variant cannot be materialized
+\end{verbatim}
+\end{enumerate}
+
+This progression is also the practical answer to a specific failure mode
+of trace-based tracking on its own: a single commit that reformats or
+auto-formats a whole file would, under trace-based tracking alone,
+reassign every line in it to that formatting commit, destroying every tag
+those lines used to carry, even though nothing about the code's meaning
+changed. Falling back to content and similarity search specifically does
+not depend on the trace succeeding, so a pure reformat (case 2) is
+recovered exactly and a moderate rewrite (case 3) is recovered
+approximately; only a genuine replacement of the underlying content (case
+4) is ever reported as lost, and even then, honestly, instead of guessing.
+
+\subsection{Sharing and Merging the Store}
+\label{sec:sharing}
+
+\decision{Transferring the metadata store between clones, and combining
+two independently modified copies of it, are explicit operations with
+their own deterministic merge rules, rather than something a plain push
+or fetch handles automatically.}
+
+\rationale This is the direct consequence of Section~\ref{sec:storage}'s
+first decision. Git's default transfer rules only mirror the conventional
+branch namespace; moving the store outside that namespace was necessary to
+keep it out of the way, but it also means nothing built into Git already
+knows to carry it along. The alternative, keeping the store on an
+ordinary branch specifically so it inherits default transfer behavior,
+was rejected because it reintroduces the exact clutter and
+accidental-checkout risk the first decision in this section was made to
+avoid. Given that trade-off, the store's synchronization is instead
+implemented directly: explicit commands move it between clones, and a
+merge routine combines two diverged copies using rules chosen so that two
+independent machines always converge on the same result (for example: an
+identifier minted twice, once on each side, for the same commit keeps a
+single, deterministic choice between the two, and every downstream record
+that referenced the discarded one is transparently redirected).
+
+\tradeoff Sharing metadata is a step a developer has to remember to take;
+it is not a free side effect of sharing code the normal way.
+
+\subsection{Known Limitations of the Storage Model}
+\label{sec:storage-limits}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item The identity-tracking automation described in
+    Section~\ref{sec:identity} is local to whichever clone it is
+    installed on. Commits made elsewhere depend on the reconciliation
+    fallback, which is reliable for unmodified changes but can leave
+    genuinely ambiguous cases for a person to resolve.
+    In practice this means fetching and adopting an existing store (Section~\ref{sec:sharing}) before initializing or backfilling a fresh clone, since that sidesteps reconciliation entirely for anything the store already knows about; only commits no clone's hooks ever touched at all still require it
+  \item Resolution confidence (Section~\ref{sec:resolution}) is
+    best-effort and can degrade with sufficiently heavy rewrites; this is
+    surfaced honestly rather than hidden, but it means traceability
+    quality is not guaranteed to remain perfect indefinitely.
+  \item Merging two copies of the store (Section~\ref{sec:sharing}) is
+    only automatic when both were written by compatible versions of the
+    tool's internal record format; an incompatible pair fails closed
+    rather than risk a misinterpreted merge.
+  \item Nothing in the storage model infers a region's feature
+    automatically. A change that is never labeled is permanently treated
+    as unconditional code; this is a deliberate default, not an
+    oversight, but it does mean coverage is only as complete as what a
+    developer actually records.
+  \item The similarity fallback within resolution (step 3 of
+    Section~\ref{sec:resolution}) accepts the single best match above its
+    threshold without checking whether a second, comparably good match
+    exists elsewhere in the project. This is unlike the ambiguity check
+    performed during identifier reconciliation (Section~\ref{sec:identity}),
+    which explicitly reports a tie for a person to resolve; a resolution
+    that happens to match more than one plausible location is, at
+    present, decided silently rather than flagged.
+  \item A presence condition's syntax (Section~\ref{sec:presence}) is not
+    checked at the moment it is recorded. A malformed condition is only
+    caught later, when the feature model is explicitly validated or a
+    variant that depends on it is derived.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{The Feature Model}
+\label{sec:modeling}
+
+\subsection{Placing the Model File at the Project Root}
+\label{sec:model-root}
+
+\decision{The feature model is a single file, \texttt{model.cfr}, kept at
+the top level of the project's working directory, tracked and versioned
+exactly like any other source file.}
+
+\rationale Two alternatives were rejected:
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Keeping the model in the metadata store (Section~\ref{sec:storage})
+    alongside everything else would hide a decision that is, by nature,
+    about the product as a whole from anyone simply browsing the
+    repository, with no indication it exists at all unless they already
+    knew where to look.
+  \item Nesting it inside a configuration subdirectory would demote it to
+    the same tier as incidental tooling configuration, when it is closer
+    in kind to a project's top-level manifest, the same reason a
+    \texttt{README} or package manifest sits at the root.
+  \end{itemize}
+
+
+Placing it at the root instead means it is the first thing visible in a
+directory listing, requires no special handling to version, diff, or
+review (it participates in ordinary code review the same as any other
+file change), and is trivially available to the derivation pipeline
+without any extra bookkeeping: resolving a configuration simply reads
+\texttt{model.cfr} out of the commit tree being built from
+(Section~\ref{sec:pipeline}), the same way it would read any other
+tracked file.
+
+\tradeoff A root-level file claims a name that could, in principle,
+collide with an unrelated project convention. This was judged an
+acceptable, low-probability cost against the visibility gained.
+
+\subsection{A Deliberately Small Subset of Clafer}
+
+\decision{The feature model is written in a small, explicitly bounded
+subset of the Clafer modeling language: a feature tree with
+cardinalities, group cardinalities, boolean cross-tree constraints, and
+named, concrete configurations. Everything else Clafer supports
+(references, arithmetic, quantifiers, structural joins, enumerations) is
+deliberately excluded and fails to parse.}
+
+\rationale Clafer itself was chosen over inventing a bespoke format
+because it is an established, purpose-built notation for exactly this
+problem, feature trees, group relationships, and constraints, with a
+syntax concise enough to sit comfortably in a small text file. Adopting
+only a subset of it, rather than the full language, was a separate and
+equally deliberate choice: nothing beyond ``which features exist, how they
+relate, and which combinations are valid'' is needed to annotate code and
+derive variants, and a smaller grammar is easier to implement correctly,
+easier to keep correct as the tool evolves, and easier for a modeler to
+learn completely rather than partially. The subset restriction is stated
+directly in the grammar itself, so an author who reaches for a feature
+outside it is told immediately, at parse time, rather than discovering
+a silent misinterpretation later.
+
+\subsection{Resolving Named Configurations}
+
+\decision{Resolving a configuration works out every feature's status, not
+just the ones it names directly, by repeatedly applying the model's
+rules until nothing new follows. If the rules ever contradict each
+other, the resolver rejects the configuration and says exactly why.}
+
+\rationale A configuration like \texttt{Full} only names a few features
+directly. The rest follow from rules already in the model, such as
+``this feature requires that one'' or ``exactly one of these three must
+be on.'' One pass through these rules is often not enough: settling one
+feature can complete a group, or satisfy a rule, that then settles
+another. So the resolver keeps re-checking all the rules until a full
+pass changes nothing, and only then treats anything still undecided as
+excluded. If two rules ever force the same feature to different values,
+that is a genuine contradiction in the model, and the resolver stops and
+reports exactly what conflicts, instead of guessing.
+
+
+% ---------------------------------------------------------------------
+\section{Variant Derivation}
+\label{sec:derivation}
+
+\subsection{Design Principle: Derive, Never Maintain}
+
+\decision{A variant (a build containing only a chosen configuration's
+features) is computed fresh from history every time it is requested. It
+is never kept as a long-lived branch that is separately maintained and
+periodically updated.}
+
+\rationale A permanently maintained variant branch drifts the moment
+anything upstream changes, and keeping it current becomes a manual
+responsibility someone has to remember to discharge, precisely the kind
+of bookkeeping this project exists to remove. Recomputing a variant
+on demand from the tagged history, instead, means it can never be stale:
+it always reflects exactly what the current (or a chosen historical)
+state of the tagged history says, with no separate copy to fall out of
+sync.
+
+\subsection{The Four-Stage Pipeline}
+\label{sec:pipeline}
+
+\decision{Deriving a variant is a pipeline of four distinct, individually
+checkable stages, rather than a single opaque step.}
+
+\begin{enumerate}[leftmargin=1.6em]
+  \item \textbf{Configure.} The requested configuration is resolved
+    against \texttt{model.cfr} as it exists in the tree of the commit
+    being built \emph{from}, not the working directory, so that
+    deriving from an older point in history uses the model as it existed
+    at that point. This yields a total feature-to-boolean assignment,
+    or an outright rejection if the configuration is illegal.
+    \item \textbf{Project.} For every region belonging to that history,
+    decide whether it stays or goes by checking its presence condition
+    against the assignment, and find where it currently lives
+    (Section~\ref{sec:resolution}). These decisions are then checked
+    against each other, and any conflict is named rather than silently
+    resolved: two regions disagreeing over the same lines, a kept region
+    sitting inside one about to be removed, or a region that must be
+    removed but cannot be found.
+  \item \textbf{Materialize.} The reduced tree is built: every disabled
+    region's lines are spliced out of the files that contain them, and
+    every file untouched by any removal is carried over unchanged. This
+    produces an actual, ordinary branch containing the result.
+  \item \textbf{Verify.} Before that branch becomes the visible result,
+    it gets a second, independent check: for each region, its actual
+    recorded content, not the resolver's answer about where it should
+    be, is looked for in the produced tree, confirming a kept region is
+    really there and a removed one is really gone. Any mismatch aborts
+    the operation outright.
+  \end{enumerate}
+
+\rationale Splitting derivation into stages with individually checkable
+outputs, rather than one combined operation, means each kind of failure
+(an illegal configuration, a contradictory set of regions, a
+mis-resolved location) is caught at the earliest point it can be
+detected, with a specific, actionable reason, instead of surfacing later
+as an unexplained bad build. A preview mode that stops after the second
+stage and reports the plan without writing anything follows directly from
+this separation: previewing a derivation is simply not running the last
+two stages.
+
+\subsection{Verification as a Gate, Not a Formality}
+
+\rationale The materialize stage trusts the resolver's answer about
+where a region currently lives; that resolver, as described in
+Section~\ref{sec:resolution}, is explicitly best-effort past its first
+tier. Treating its output as automatically correct would let a
+low-confidence resolution silently produce a subtly wrong build. The
+verify stage exists specifically to not extend that trust: it recovers
+what a region's content actually was, independently of the location the
+resolver reported, and checks that content's presence or absence in the
+result, so a derivation is only ever handed over once it has been
+confirmed to actually contain what it claims to.
+
+\tradeoff This check operates purely on text content; it confirms the
+expected lines are present or absent, not that the resulting code still
+compiles or behaves correctly. It catches a specific, important class of
+failure (a wrong or incomplete removal), not every possible one.
+
+\subsection{Editing a Derivation: View and Putback}
+
+\decision{A derived variant can optionally be opened as an editable
+session (a \emph{view}), and an edit made to it can be mapped back
+automatically onto the corresponding position in the full, undereived
+history (\emph{putback}), rather than requiring a plain, disposable
+derivation only.}
+
+\rationale A reduced variant is not only useful as a shipping artifact;
+it is also, simply by being smaller, sometimes an easier place to notice
+and fix a bug than the full codebase would be. Without a way to carry a
+fix made there back to the real history, that advantage would be wasted,
+since a plain derivation is disposable and rebuilding it would discard
+any edit made directly on it. A view therefore additionally records
+exactly which line ranges of the source were removed to produce it; that
+record is precisely the information needed to translate a position in the
+reduced file back into a position in the full file, and vice versa.
+Applying a mapped edit back is then an ordinary commit on the real
+history, immediately eligible for its own feature labels like any other
+commit.
+
+\tradeoff Only edits that map unambiguously are accepted: an insertion
+or an in-place change that sits entirely within one surviving piece of a
+file. An edit that straddles the boundary between kept and removed code,
+or a change that is not a simple content edit (deleting a file, a binary
+change), is refused rather than partially applied, and the mapping
+itself becomes stale, and must be refreshed, if the real history moves on
+while a view is open.
+
+\subsection{Known Limitations of Derivation}
+
+\begin{itemize}[leftmargin=1.4em]
+  \item Region removal operates purely on text; the pipeline has no
+    understanding of the target language's syntax or semantics, so a
+    poorly chosen region boundary can still produce output that passes
+    content verification (Section~\ref{sec:pipeline}) yet fails to
+    compile: removing a helper function while a call to it survives in a
+    kept region leaves exactly the text each region promised, so
+    verification passes, even though the result no longer runs.
+  \item Contradictions found during the project stage are refused, not
+    resolved automatically; an automatic resolution could easily choose
+    wrong, so some configurations require a person to intervene before a
+    build can be produced at all.
+  \item Putback (Section~\ref{sec:derivation}) only accepts straightforward
+    edits, as described above; more complex edits are rejected outright
+    rather than approximated.
+\end{itemize}
+
+% ---------------------------------------------------------------------
+\section{Summary of Key Concepts}
+
+Table~\ref{tab:concepts} collects the terms introduced in this report as
+a quick reference.
+
+\begin{longtable}{@{}p{0.24\textwidth}p{0.68\textwidth}@{}}
+\toprule
+\textbf{Term} & \textbf{Meaning} \\
+\midrule
+\endhead
+Metadata store & The separate, non-branch commit history holding all
+  feature records (Section~\ref{sec:storage}). \\
+Permanent identifier & The tool-assigned, hash-independent identity a
+  commit's records are filed under (Section~\ref{sec:identity}). \\
+Region & A specific line range from one historical change, labeled with a
+  presence condition (Section~\ref{sec:presence}). \\
+Presence condition & A boolean expression over feature names, attached to
+  a region, deciding when it should be present (Section~\ref{sec:presence}). \\
+Resolution confidence & How certain the tool is about a region's current
+  location: exact, moved, fuzzy, or lost (Section~\ref{sec:resolution}). \\
+Configuration & A total, resolved feature-to-boolean assignment produced
+  from a named instance in the model (Section~\ref{sec:modeling}). \\
+Variant & A derived, reduced build containing only the regions a chosen
+  configuration keeps (Section~\ref{sec:derivation}). \\
+Projection & The stage that decides every region's fate under a
+  configuration and reports contradictions (Section~\ref{sec:pipeline}). \\
+View / putback & An editable derivation, and the mechanism mapping an
+  edit made on it back onto the full history. \\
+\bottomrule
+\caption{Key terms used throughout this report.}
+\label{tab:concepts}
+\end{longtable}
+
+\section{Summary of Design Decisions}
+
+\begin{longtable}{@{}p{0.32\textwidth}p{0.6\textwidth}@{}}
+\toprule
+\textbf{Decision} & \textbf{Reason, in short} \\
+\midrule
+\endhead
+Metadata store outside the branch namespace & Keeps records durable and
+  inspectable without cluttering everyday Git commands. \\
+Records filed under a permanent identifier & Survives rebase, amend, and
+  cherry-pick, which broke hash-keyed records. \\
+Region-level, not commit-level, labels & A commit can serve more than one
+  feature; a label should not force one classification on all of it. \\
+Presence conditions as boolean expressions & Code often depends on a
+  combination of features, not one in isolation. \\
+Tiered, confidence-labeled resolution & Line positions are not stable;
+  honesty about uncertainty beats a silent guess. \\
+Explicit store sharing and merging & The cost of moving off the branch
+  namespace, addressed directly rather than left unsolved. \\
+\texttt{model.cfr} at the project root & Visible by default, versioned
+  like any source file, no special tooling required to find or diff it. \\
+A small, bounded Clafer subset & Only what feature modeling actually
+  needs; smaller surface, easier to implement and learn completely. \\
+Repeatedly apply the model's rules to resolve a configuration & Settles
+  features not named directly, and rejects impossible configurations by
+  name instead of guessing. \\
+Derive on demand, never maintain a copy & A recomputed variant cannot go
+  stale the way a hand-maintained one would. \\
+Four-stage pipeline with a verification gate & Isolates each kind of
+  failure and refuses to hand over an unverified result. \\
+View and putback & Lets a fix found in a smaller, reduced build return to
+  the real history automatically. \\
+\bottomrule
+\caption{Design decisions covered in this report, condensed.}
+\end{longtable}
+
+\end{document}
