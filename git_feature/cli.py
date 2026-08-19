@@ -15,6 +15,7 @@ from .commands import hook_run as hook_run_cmd
 from .commands import info as info_cmd
 from .commands import init as init_cmd
 from .commands import list as list_cmd
+from .commands import log_diff as log_diff_cmd
 from .commands import model as model_cmd
 from .commands import putback as putback_cmd
 from .commands import reconcile as reconcile_cmd
@@ -147,6 +148,15 @@ def coverage(
 ) -> None:
     """Report annotated vs unannotated changes over a range."""
     coverage_cmd.run(ctx, rev_range=rev_range, verbose=verbose)
+
+
+@app.command(name="log-diff")
+def log_diff(
+    ctx: typer.Context,
+    target: Annotated[str, typer.Argument(help="Branch/rev to compare against HEAD.")],
+) -> None:
+    """List commits on target missing from HEAD, matched by change-id across rewrites."""
+    log_diff_cmd.run(ctx, target=target)
 
 
 model_app = typer.Typer(no_args_is_help=True)
